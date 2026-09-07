@@ -536,6 +536,7 @@
         <div class="modal-nav-item active" data-page="general"><span class="ic">◧</span>General</div>
         <div class="modal-nav-item" data-page="appearance"><span class="ic">◐</span>Appearance</div>
         <div class="modal-nav-item" data-page="skills"><span class="ic">✦</span>Skills</div>
+        <div class="modal-nav-item" data-page="api"><span class="ic">⚿</span>API</div>
         <div class="modal-nav-item" data-page="mcp"><span class="ic">⛓</span>MCP</div>
         <div class="modal-nav-item" data-page="data"><span class="ic">⇅</span>Data</div>
       </div>
@@ -631,6 +632,32 @@
         <input id="skillNewName" placeholder="skill name" />
         <textarea id="skillNewPrompt" placeholder="instructions for this skill…" style="margin-top:8px;"></textarea>
         <button id="skillAddBtn" style="width:100%;margin-top:10px;">add skill</button>
+      </div>
+
+      <div class="modal-page" data-content="api" style="display:none;">
+        <div class="modal-page-title">API</div>
+        <div class="mcp-hint">
+          Your subrouter endpoint and token. These are stored in <code>config.json</code> on the machine running the server — not in this browser, and never in git.
+        </div>
+        <div class="modal-section">
+          <div class="field">
+            <div class="modal-section-title">Base URL</div>
+            <input id="setBaseUrl" placeholder="https://router.example.com/v1" />
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="field">
+            <div class="modal-section-title">API token</div>
+            <div class="mcp-hint" id="apiKeyStatus" style="margin-bottom:8px;">checking…</div>
+            <input id="setApiKey" type="password" placeholder="paste a new token to replace the current one" autocomplete="off" />
+            <div class="mcp-hint" style="margin-top:6px;">Leave blank to keep the existing token.</div>
+          </div>
+          <button class="reset-link" id="apiKeyToggleVis">Show token field</button>
+        </div>
+        <div class="modal-section">
+          <button class="pill-btn" id="apiTestBtn">Test connection</button>
+          <div class="mcp-hint" id="apiTestResult" style="margin-top:8px;"></div>
+        </div>
       </div>
 
       <div class="modal-page" data-content="mcp" style="display:none;">
@@ -1615,6 +1642,65 @@ function populateDefaultEffortSelect(){
   sel.value = settings.defaultEffort || 'off';
 }
 
+let apiCfg = { base_url:'', has_key:false, key_masked:'' };
+
+async function loadApiConfig(){
+  $('apiTestResult').textContent = '';
+  $('setApiKey').value = '';
+  try{
+    const r = await fetch('/api/config');
+    apiCfg = await r.json();
+    $('setBaseUrl').value = apiCfg.base_url || '';
+    renderApiKeyStatus();
+  }catch(e){
+    $('apiKeyStatus').textContent = 'could not reach the server';
+  }
+}
+function renderApiKeyStatus(){
+  $('apiKeyStatus').textContent = apiCfg.has_key
+    ? 'Current token: ' + apiCfg.key_masked
+    : 'No token set — the app will not be able to reach the router.';
+}
+async function saveApiConfig(){
+  const base_url = $('setBaseUrl').value.trim();
+  const api_key  = $('setApiKey').value.trim();
+  if(!base_url && !api_key) return;
+  try{
+    const r = await fetch('/api/config', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ base_url, api_key })
+    });
+    const j = await r.json();
+    if(j.error) throw new Error(j.error);
+    apiCfg = j;
+    $('setApiKey').value = '';
+    renderApiKeyStatus();
+    if(api_key) appendMsgDom('system', 'API token updated.');
+    updateModelDropdown();
+  }catch(err){
+    appendMsgDom('system', 'Could not save API settings: ' + err.message);
+  }
+}
+$('apiKeyToggleVis').addEventListener('click', () => {
+  const f = $('setApiKey');
+  const hidden = f.type === 'password';
+  f.type = hidden ? 'text' : 'password';
+  $('apiKeyToggleVis').textContent = hidden ? 'Hide token field' : 'Show token field';
+});
+$('apiTestBtn').addEventListener('click', async () => {
+  const out = $('apiTestResult');
+  out.textContent = 'testing…';
+  await saveApiConfig();
+  try{
+    const r = await fetch('/api/models');
+    const j = await r.json();
+    const n = (j.data || j.models || []).length;
+    out.textContent = r.ok && n ? ('✓ connected — ' + n + ' models available')
+                                : ('✗ ' + (j.error?.message || j.error || 'HTTP ' + r.status));
+  }catch(err){ out.textContent = '✗ ' + err.message; }
+});
+
 function openSettings(){
   populateDefaultModelSelect();
   populateDefaultEffortSelect();
@@ -1629,6 +1715,7 @@ function openSettings(){
   renderApprovalToggle();
   renderSkillsList();
   loadMcpServers();
+  loadApiConfig();
   $('settingsOverlay').classList.add('show');
 }
 $('defaultModelReset').addEventListener('click', () => { $('setDefaultModel').value = ''; });
@@ -1705,6 +1792,7 @@ document.querySelectorAll('.modal-nav-item').forEach(item => {
 $('settingsBtn').addEventListener('click', openSettings);
 $('settingsClose').addEventListener('click', () => $('settingsOverlay').classList.remove('show'));
 $('settingsSave').addEventListener('click', () => {
+  saveApiConfig();
   settings.defaultModel = $('setDefaultModel').value;
   settings.defaultEffort = $('setDefaultEffort').value;
   settings.memory = $('setMemory').value;

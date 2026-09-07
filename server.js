@@ -202,6 +202,44 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // --- API credentials (base_url + api_key) -------------------------------
+  // GET never returns the real key — only a masked preview.
+  if (url.pathname === '/api/config' && req.method === 'GET') {
+    try {
+      const cfg = loadConfig();
+      const k = cfg.api_key || '';
+      sendJson(res, 200, {
+        base_url: cfg.base_url || '',
+        has_key: !!k,
+        key_masked: k ? k.slice(0, 7) + '…' + k.slice(-4) : ''
+      });
+    } catch (err) { sendJson(res, 500, { error: err.message }); }
+    return;
+  }
+
+  if (url.pathname === '/api/config' && req.method === 'POST') {
+    let body = '';
+    req.on('data', (c) => (body += c));
+    req.on('end', () => {
+      try {
+        const { base_url, api_key } = JSON.parse(body);
+        const cfg = loadConfig();
+        if (typeof base_url === 'string' && base_url.trim()) cfg.base_url = base_url.trim();
+        // empty/omitted api_key means "leave the existing key alone"
+        if (typeof api_key === 'string' && api_key.trim()) cfg.api_key = api_key.trim();
+        saveConfig(cfg);
+        const k = cfg.api_key || '';
+        sendJson(res, 200, {
+          ok: true,
+          base_url: cfg.base_url,
+          has_key: !!k,
+          key_masked: k ? k.slice(0, 7) + '…' + k.slice(-4) : ''
+        });
+      } catch (err) { sendJson(res, 400, { error: err.message }); }
+    });
+    return;
+  }
+
   if (url.pathname === '/api/mcp/servers' && req.method === 'GET') {
     const cfg = loadConfig();
     const list = Object.entries(cfg.mcpServers || {}).map(([name, def]) => {
@@ -322,7 +360,7 @@ const server = http.createServer((req, res) => {
   serveStatic(url.pathname, res);
 });
 
-server.listen(PORT, () => {
-  console.log(`subrouter-web running at http://localhost:${PORT}`);
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`subrouter-web running at http://localhost:${PORT} (localhost only)`);
   console.log('Edit config.json to change your base_url / api_key / mcpServers.');
 });
