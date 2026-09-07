@@ -1,0 +1,10 @@
+{
+  "base_url": "https://router.eva.pink/v1",
+  "api_key": "sk-sub-your-key-here",
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\Users\\YOUR_USERNAME\\Documents"]
+    }
+  }
+}

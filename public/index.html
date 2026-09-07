@@ -1,0 +1,1744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<title>subrouter // chat</title>
+<style>
+  :root{
+    --bg:#141312;
+    --panel:#1d1d1a;
+    --panel-alt:#232320;
+    --panel-alt2:#292925;
+    --border:rgba(255,255,255,.14);
+    --text:#f8f8f4;
+    --muted:#a8a29e;
+    --accent:#93b0ff;
+    --accent-dim:#6f89d9;
+    --user:#5ecbb0;
+    --err:#ff6b6b;
+    color-scheme: dark;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,Segoe UI,Inter,system-ui,sans-serif;
+    display:flex;
+    overflow:hidden;
+  }
+  code, .mono, .navlabel{
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  }
+  .brand b, .modal-nav-item{
+    font-family:"Space Grotesk", system-ui, sans-serif;
+  }
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+
+  /* ---------- sidebar ---------- */
+  #sidebar{
+    width:260px; min-width:260px;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  .brand{
+    font-size:13px; letter-spacing:.02em; color:var(--muted);
+    padding:16px 16px 10px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:8px;
+  }
+  .brand .dot{
+    width:7px; height:7px; border-radius:50%; background:var(--muted); flex-shrink:0;
+  }
+  .brand .dot.on{ background:var(--user); box-shadow:0 0 6px var(--user); }
+  .brand .dot.off{ background:var(--err); }
+  .brand b{ color:var(--text); font-weight:600; font-size:15px; }
+
+  .navlabel{
+    font-size:10.5px; color:var(--muted); padding:12px 16px 4px; letter-spacing:.03em;
+  }
+  #newChatBtn{ margin:10px 16px 4px; }
+
+  #convoList{ flex:1; overflow-y:auto; padding:4px 8px 8px; }
+  .convo{
+    padding:8px 10px; border-radius:6px; cursor:pointer; font-size:13px;
+    color:var(--muted); display:flex; align-items:center; gap:8px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .convo:hover{ background:var(--panel-alt); }
+  .convo.active{ background:var(--panel-alt2); color:var(--text); }
+  .convo .title-text{ overflow:hidden; text-overflow:ellipsis; flex:1; }
+  .convo .rename-input{
+    flex:1; background:var(--panel-alt2); border:1px solid var(--accent-dim); border-radius:4px;
+    color:var(--text); font-size:13px; padding:1px 4px; font-family:inherit;
+  }
+  .convo .del{ margin-left:auto; opacity:0; font-size:11px; color:var(--err); flex-shrink:0; }
+  .convo:hover .del{ opacity:1; }
+
+  #sidebarFooter{
+    border-top:1px solid var(--border); padding:10px 16px; display:flex; gap:8px;
+  }
+  #sidebarFooter button{ flex:1; }
+
+  /* ---------- shared controls ---------- */
+  .field{ display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+  .field label{ font-size:12px; color:var(--muted); }
+  .field input, .field select, .modal-page input, .modal-page select{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text);
+    padding:10px 16px; border-radius:24px; font-size:13px; outline:none; font-family:inherit;
+    width:100%;
+  }
+  .field textarea, .modal-page textarea{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text);
+    padding:10px 14px; border-radius:10px; font-size:13px; outline:none; font-family:inherit;
+    resize:vertical; min-height:70px; width:100%;
+  }
+  .field select:focus, .field input:focus, .field textarea:focus,
+  .modal-page select:focus, .modal-page input:focus, .modal-page textarea:focus{ border-color:var(--accent-dim); }
+  .reset-link{
+    background:none; border:none; color:var(--muted); font-size:12px; text-decoration:underline;
+    cursor:pointer; padding:4px 0; align-self:flex-start;
+  }
+  .reset-link:hover{ color:var(--text); }
+
+  button{
+    font-family:inherit; font-size:13px; cursor:pointer; border-radius:6px;
+    border:1px solid var(--border); background:var(--panel-alt); color:var(--text); padding:8px 10px;
+  }
+  button:hover{ border-color:var(--accent-dim); }
+  button.primary{ background:var(--accent-dim); border-color:var(--accent-dim); color:#fff; }
+  button.primary:hover{ background:var(--accent); }
+  button.ghost{ background:transparent; border-color:transparent; color:var(--muted); }
+  button.ghost:hover{ color:var(--text); border-color:var(--border); }
+  button:disabled{ opacity:.4; cursor:default; }
+  .row{ display:flex; gap:8px; }
+  .row > *{ flex:1; }
+  .pill-btn{
+    border-radius:20px; background:var(--accent-dim); border-color:var(--accent-dim); color:#fff; padding:9px 18px;
+  }
+  .pill-btn:hover{ background:var(--accent); }
+
+  /* toggle switch */
+  .toggle-switch{
+    width:38px; height:22px; border-radius:11px; background:var(--panel-alt2);
+    border:1px solid var(--border); position:relative; cursor:pointer; flex-shrink:0;
+  }
+  .toggle-switch.on{ background:var(--accent); border-color:var(--accent); }
+  .toggle-switch .knob{
+    position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%;
+    background:#fff; transition:left .15s;
+  }
+  .toggle-switch.on .knob{ left:18px; }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; font-size:13px; gap:10px; }
+
+  /* ---------- main ---------- */
+  #main{ flex:1; display:flex; flex-direction:column; min-width:0; position:relative; }
+
+  #messages{
+    flex:1; overflow-y:auto; padding:24px 22px 8px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .msg{ display:flex; gap:10px; max-width:760px; margin-bottom:16px; }
+  .avatar{
+    width:28px; height:28px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; background:var(--panel-alt2); border:1px solid var(--border);
+    overflow:hidden;
+  }
+  .avatar img{ width:100%; height:100%; object-fit:cover; }
+  .msg-body{ flex:1; min-width:0; padding-top:2px; }
+  .who{ font-size:11px; color:var(--muted); margin-bottom:4px; }
+  .msg.user .who{ color:var(--user); }
+  .msg.assistant .who{ color:var(--accent); }
+  .msg.system .who{ color:var(--err); }
+  .content{ white-space:pre-wrap; line-height:1.55; font-size:14.5px; word-wrap:break-word; }
+  .content h1, .content h2, .content h3{
+    font-family:"Space Grotesk", system-ui, sans-serif; margin:10px 0 6px; white-space:normal;
+  }
+  .content h1{ font-size:1.3em; } .content h2{ font-size:1.15em; } .content h3{ font-size:1.05em; }
+  .content ul, .content ol{ margin:6px 0 6px 20px; padding:0; white-space:normal; }
+  .content li{ margin-bottom:3px; }
+  .content a{ color:var(--accent); }
+  .msg-inline-img{ max-width:100%; max-height:420px; object-fit:contain; border-radius:8px; border:1px solid var(--border); margin:6px 0; display:block; }
+  .msg.system .content{ color:var(--muted); font-size:13px; }
+  .msg-footer{ display:flex; align-items:center; gap:10px; margin-top:5px; }
+  .msg-meta{ font-size:11px; color:var(--muted); opacity:.8; }
+  .msg-copy-btn{
+    font-size:11px; color:var(--muted); cursor:pointer; background:none; border:none; padding:0;
+  }
+  .msg-copy-btn:hover{ color:var(--text); }
+
+  /* thinking dots */
+  .thinking-dots{ display:inline-flex; gap:4px; padding:6px 0; }
+  .thinking-dots span{
+    width:6px; height:6px; border-radius:50%; background:var(--muted);
+    animation:tdBounce 1.2s infinite ease-in-out both;
+  }
+  .thinking-dots span:nth-child(1){ animation-delay:-0.32s; }
+  .thinking-dots span:nth-child(2){ animation-delay:-0.16s; }
+  @keyframes tdBounce{
+    0%, 80%, 100%{ transform:scale(.6); opacity:.4; }
+    40%{ transform:scale(1); opacity:1; }
+  }
+
+  /* tool call steps (mcp) — pi-style card */
+  .tool-steps{ margin-bottom:8px; display:flex; flex-direction:column; gap:8px; }
+  .tool-step{
+    border:1px solid var(--border); border-radius:10px; background:var(--panel-alt); overflow:hidden;
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; font-size:12px;
+  }
+  .tool-step-head{
+    display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer; color:var(--text);
+  }
+  .tool-step-head .step-icon{ font-size:12px; }
+  .tool-step.pending .step-icon{ display:inline-block; animation:spin 1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .tool-step-head .step-tool{ color:var(--accent); }
+  .step-status{
+    font-size:10px; padding:1px 8px; border-radius:10px; border:1px solid var(--border); color:var(--muted);
+  }
+  .step-status.done{ color:var(--user); border-color:var(--user); }
+  .step-status.running{ color:#f5a623; border-color:#f5a623; }
+  .step-status.denied{ color:var(--err); border-color:var(--err); }
+  .tool-step-head .spacer{ flex:1; }
+  .tool-step-head .step-copy, .tool-step-head .step-chev{
+    color:var(--muted); cursor:pointer; font-size:12px; padding:2px 4px;
+  }
+  .tool-step-head .step-copy:hover, .tool-step-head .step-chev:hover{ color:var(--text); }
+  .tool-step-body{ border-top:1px solid var(--border); padding:8px 10px; }
+  .tool-step-body.collapsed{ display:none; }
+  .step-args{
+    overflow-x:auto; white-space:nowrap; color:var(--muted); padding:6px 8px;
+    background:var(--panel-alt2); border-radius:6px; margin-bottom:8px;
+  }
+  .step-output-label{ font-size:10px; color:var(--muted); letter-spacing:.04em; margin-bottom:4px; }
+  .step-result{
+    color:var(--text); white-space:pre-wrap; word-break:break-word;
+    max-height:140px; overflow-y:auto; background:var(--panel-alt2); border-radius:6px; padding:6px 8px;
+  }
+  .step-approve-row{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:8px 10px; border-top:1px solid var(--border); }
+  .step-approve-row button{ font-family:inherit; font-size:11px; padding:6px 8px; }
+  .step-approve-row .approve-btn{ background:var(--user); border-color:var(--user); color:#141312; }
+  .step-approve-row .deny-btn{ background:transparent; border-color:var(--err); color:var(--err); }
+  .step-approve-row .allow-chat-btn, .step-approve-row .allow-all-btn{ background:transparent; border-color:var(--accent-dim); color:var(--accent); }
+
+  /* chat-bubble layout (toggle in settings > appearance) */
+  #messages.bubbles .msg{ align-items:flex-end; max-width:100%; }
+  #messages.bubbles .msg.user{ flex-direction:row-reverse; }
+  #messages.bubbles .msg.user .msg-body{ display:flex; flex-direction:column; align-items:flex-end; }
+  #messages.bubbles .msg.assistant .msg-body{ display:flex; flex-direction:column; align-items:flex-start; }
+  #messages.bubbles .msg .content{
+    display:inline-block; max-width:560px; padding:10px 14px; border-radius:16px;
+  }
+  #messages.bubbles .msg.user .content{ background:var(--accent); color:#141312; border-bottom-right-radius:4px; }
+  #messages.bubbles .msg.assistant .content{ background:var(--panel-alt2); border-bottom-left-radius:4px; }
+  #messages.bubbles .msg.system .content{ background:transparent; padding:0; }
+  #messages.bubbles .who{ display:none; }
+
+  .attach-thumb{
+    max-width:220px; border-radius:6px; border:1px solid var(--border); margin-top:6px; display:block;
+  }
+  .attach-file{
+    display:inline-block; margin-top:6px; font-size:12px; color:var(--muted);
+    border:1px solid var(--border); padding:4px 8px; border-radius:5px;
+  }
+
+  .codeblock-wrap{ position:relative; margin:8px 0; }
+  pre.codeblock{
+    background:var(--panel-alt); border:1px solid var(--border); border-radius:8px;
+    padding:34px 14px 12px; margin:0; overflow-x:auto;
+  }
+  pre.codeblock code{ font-size:13px; line-height:1.5; color:var(--text); }
+  .codeblock-wrap .copy-btn{
+    position:absolute; top:6px; right:6px; font-size:11px; padding:3px 8px; z-index:2;
+    background:var(--panel-alt2); border:1px solid var(--border); border-radius:5px;
+    color:var(--muted); cursor:pointer;
+  }
+  .codeblock-wrap .copy-btn:hover{ color:var(--text); border-color:var(--accent-dim); }
+  code.inline{
+    background:var(--panel-alt2); border:1px solid var(--border); border-radius:14px;
+    padding:2px 8px; font-size:.88em;
+  }
+  .tok-comment{ color:var(--muted); font-style:italic; }
+  .tok-string{ color:var(--user); }
+  .tok-number{ color:#f5a623; }
+  .tok-keyword{ color:var(--accent); font-weight:600; }
+
+  .empty{ color:var(--muted); font-size:13px; padding:40px 0; }
+
+  #dropZone{
+    position:absolute; inset:0; background:rgba(11,12,16,.85);
+    display:none; align-items:center; justify-content:center;
+    color:var(--accent); font-size:14px; border:2px dashed var(--accent-dim);
+    margin:12px; border-radius:10px; z-index:20; pointer-events:none;
+  }
+  #dropZone.show{ display:flex; }
+
+  #pendingAttachments{
+    display:flex; gap:8px; flex-wrap:wrap; padding:0 22px; margin-top:8px;
+  }
+  .pending-chip{
+    display:flex; align-items:center; gap:6px; background:var(--panel-alt);
+    border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px; color:var(--muted);
+  }
+  .pending-chip .x{ cursor:pointer; color:var(--err); }
+
+  #queueNotice{
+    padding:6px 22px; font-size:12px; color:var(--accent); display:none;
+  }
+  #queueNotice.show{ display:block; }
+
+  /* ---------- composer (chatbox-style input bar) ---------- */
+  #composer{
+    position:relative;
+    margin:10px 22px 20px;
+    border:1px solid var(--border);
+    border-radius:16px;
+    background:var(--panel-alt);
+    display:flex; flex-direction:column;
+  }
+  #composer:focus-within{ border-color:var(--accent-dim); }
+  #composer textarea{
+    border:none; background:transparent; resize:none; outline:none;
+    color:var(--text); font-family:inherit; font-size:14px; line-height:1.4;
+    padding:14px 50px 6px 16px; max-height:160px; min-height:24px;
+  }
+  .composer-toolbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:2px 10px 10px 10px;
+  }
+  .composer-left, .composer-right{ display:flex; align-items:center; gap:8px; }
+  .icon-btn{
+    width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:transparent; border:1px solid var(--border); color:var(--muted); cursor:pointer; padding:0; font-size:15px;
+    position:relative;
+  }
+  .icon-btn:hover{ color:var(--text); border-color:var(--accent-dim); }
+  .icon-btn[data-tip]:hover::after{
+    content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+    background:var(--panel-alt2); border:1px solid var(--border); color:var(--text); font-size:11px;
+    padding:5px 9px; border-radius:6px; white-space:nowrap; z-index:30; pointer-events:none;
+  }
+  #fileInput{ display:none; }
+  .composer-count{ font-size:11px; color:var(--muted); }
+
+  .composer-send{
+    position:absolute; top:10px; right:10px; z-index:1;
+    width:30px; height:30px; border-radius:50%;
+    background:var(--accent); border:none; color:#141312;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; font-size:15px;
+  }
+  .composer-send:hover{ filter:brightness(1.08); }
+  .composer-send:disabled{ opacity:.35; cursor:default; }
+  .composer-send.stop{ background:var(--err); }
+
+  /* custom dropdowns (model + effort) */
+  .cdrop{ position:relative; }
+  .cdrop-btn{
+    display:flex; align-items:center; gap:6px;
+    background:transparent; border:1px solid var(--border); border-radius:8px;
+    padding:5px 10px; font-size:12.5px; color:var(--text); cursor:pointer;
+    white-space:nowrap; max-width:220px;
+  }
+  .cdrop-btn:hover{ border-color:var(--accent-dim); }
+  .cdrop.open .cdrop-btn{ border-color:var(--accent); }
+  .model-avatar{
+    width:16px; height:16px; border-radius:50%; background:var(--err); color:#fff;
+    font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .cdrop-btn .label{ overflow:hidden; text-overflow:ellipsis; max-width:150px; }
+  .cdrop-btn .chev{ color:var(--muted); font-size:10px; }
+  .cdrop-list{
+    position:absolute; bottom:calc(100% + 8px); right:0; min-width:180px; max-width:320px;
+    max-height:280px; overflow-y:auto;
+    background:var(--panel-alt2); border:1px solid var(--border); border-radius:10px; padding:6px;
+    display:none; z-index:100; box-shadow:0 10px 28px rgba(0,0,0,.45);
+  }
+  .cdrop.open .cdrop-list{ display:block; }
+  .cdrop-head{
+    display:flex; align-items:center; justify-content:space-between; padding:4px 6px 6px;
+    font-size:11px; color:var(--muted); border-bottom:1px solid var(--border); margin-bottom:4px;
+  }
+  .cdrop-head span.refresh{ cursor:pointer; }
+  .cdrop-head span.refresh:hover{ color:var(--text); }
+  .cdrop-item{
+    display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:6px;
+    font-size:13px; cursor:pointer; color:var(--text);
+  }
+  .cdrop-item:hover{ background:var(--panel-alt); }
+  .cdrop-item .check{ width:14px; color:var(--accent); flex-shrink:0; font-size:12px; }
+  .cdrop-item .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ---------- settings modal (multi-page, sidebar nav) ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
+    align-items:center; justify-content:center; z-index:50;
+  }
+  .modal-overlay.show{ display:flex; }
+  .modal{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    width:800px; max-width:96vw; height:640px; max-height:92vh; display:flex; flex-direction:column; overflow:hidden;
+  }
+  .modal-head{
+    padding:16px 20px; border-bottom:1px solid var(--border); font-weight:600; font-size:15px;
+    font-family:"Space Grotesk", system-ui, sans-serif;
+  }
+  .modal-body{ flex:1; display:flex; min-height:0; }
+  .modal-nav{
+    width:190px; min-width:190px; background:var(--panel-alt); border-right:1px solid var(--border);
+    padding:12px 8px; overflow-y:auto;
+  }
+  .modal-nav-item{
+    display:flex; align-items:center; gap:9px; padding:9px 10px; border-radius:8px;
+    font-size:13px; color:var(--muted); cursor:pointer; margin-bottom:2px;
+  }
+  .modal-nav-item .ic{ font-size:14px; width:16px; text-align:center; }
+  .modal-nav-item:hover{ background:var(--panel-alt2); color:var(--text); }
+  .modal-nav-item.active{ background:rgba(147,176,255,.14); color:var(--accent); }
+  .modal-page{ flex:1; padding:22px; overflow-y:auto; }
+  .modal-page-title{ font-size:16px; font-weight:600; margin-bottom:18px; font-family:"Space Grotesk", system-ui, sans-serif; }
+  .modal-section{ margin-bottom:20px; }
+  .modal-section-title{ font-size:11px; color:var(--muted); margin-bottom:8px; letter-spacing:.03em; text-transform:uppercase; }
+  .modal-hr{ border:none; border-top:1px solid var(--border); margin:20px 0; }
+  .avatar-row{ display:flex; gap:8px; align-items:center; }
+  .avatar-row .avatar{ width:36px; height:36px; }
+  .avatar-edit-block{ margin-bottom:16px; }
+  .avatar-edit-label{ font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .avatar-edit-row{ display:flex; align-items:center; gap:12px; }
+  .avatar-edit-row .avatar{ width:44px; height:44px; font-size:20px; }
+  .avatar-edit-actions{ display:flex; gap:8px; }
+  .pill-outline{
+    border-radius:20px; border:1px solid var(--accent); color:var(--accent); background:transparent; padding:6px 14px;
+  }
+  .pill-outline:hover{ background:rgba(147,176,255,.1); }
+  .pill-solid{
+    border-radius:20px; border:1px solid var(--border); background:var(--panel-alt2); color:var(--text); padding:6px 14px;
+  }
+  .modal-foot{ padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+  .layout-choice-row{ display:flex; gap:12px; }
+  .layout-choice{
+    flex:1; border:1px solid var(--border); border-radius:10px; padding:12px; cursor:pointer; text-align:center;
+  }
+  .layout-choice.active{ border-color:var(--accent); }
+  .layout-choice .preview{
+    height:60px; border-radius:6px; background:var(--panel-alt); margin-bottom:8px;
+    display:flex; flex-direction:column; justify-content:center; gap:4px; padding:8px;
+  }
+  .layout-choice .bar{ height:6px; border-radius:3px; background:var(--panel-alt2); }
+  .layout-choice .bar.accent{ background:var(--accent); align-self:flex-end; width:60%; }
+  .layout-choice .bar.short{ width:40%; }
+  .layout-choice .label{ font-size:12px; color:var(--muted); }
+  .layout-choice.active .label{ color:var(--text); }
+
+  .mcp-server{
+    border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:13px;
+  }
+  .mcp-server-row{ display:flex; align-items:center; gap:8px; }
+  .mcp-server .dot{ width:7px; height:7px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .mcp-server .dot.on{ background:var(--user); box-shadow:0 0 5px var(--user); }
+  .mcp-server .name{ font-family:ui-monospace,monospace; }
+  .mcp-server .meta{ color:var(--muted); font-size:11px; }
+  .mcp-server .spacer{ flex:1; }
+  .mcp-server .cmd{ color:var(--muted); font-size:11px; font-family:ui-monospace,monospace; margin-top:4px; }
+  .mcp-tools{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+  .mcp-tool-chip{
+    font-family:ui-monospace,monospace; font-size:10.5px; color:var(--accent);
+    background:rgba(147,176,255,.08); border:1px solid rgba(147,176,255,.22);
+    padding:2px 7px; border-radius:10px;
+  }
+  .mcp-hint{ font-size:11.5px; color:var(--muted); line-height:1.5; margin-bottom:10px; }
+
+  .skill-item{
+    border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px;
+  }
+  .skill-item-row{ display:flex; align-items:center; gap:10px; }
+  .skill-item .skill-name{ font-weight:600; font-size:13px; flex:1; }
+  .skill-item .skill-del{ color:var(--err); cursor:pointer; font-size:12px; }
+  .skill-item textarea{ margin-top:8px; min-height:50px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="brand"><span id="statusDot" class="dot"></span><b>subrouter</b></div>
+  <button id="newChatBtn" class="primary">+ new chat</button>
+  <div class="navlabel">conversations</div>
+  <div id="convoList"></div>
+  <div id="sidebarFooter">
+    <button id="settingsBtn">⚙ settings</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="dropZone">drop files or images to attach</div>
+
+  <div id="messages"></div>
+
+  <div id="queueNotice"></div>
+  <div id="pendingAttachments"></div>
+
+  <div id="composer">
+    <textarea id="input" rows="1" placeholder="Type your question here…"></textarea>
+    <button id="sendBtn" class="composer-send" title="send">↑</button>
+    <div class="composer-toolbar">
+      <div class="composer-left">
+        <button id="attachBtn" class="icon-btn" title="attach file/image">+</button>
+        <input id="fileInput" type="file" multiple />
+        <button id="convoSettingsBtn" class="icon-btn" data-tip="Conversation Settings">☰</button>
+      </div>
+      <div class="composer-right">
+        <span id="inputCount" class="composer-count">0</span>
+
+        <div class="cdrop" id="effortDropdown">
+          <button class="cdrop-btn" id="effortDropdownBtn">
+            <span class="label" id="effortDropdownLabel">Off</span>
+            <span class="chev">⌄</span>
+          </button>
+          <div class="cdrop-list" id="effortDropdownList">
+            <div class="cdrop-head"><span>thinking level</span></div>
+            <div id="effortDropdownItems"></div>
+          </div>
+        </div>
+
+        <div class="cdrop" id="modelDropdown">
+          <button class="cdrop-btn" id="modelDropdownBtn">
+            <span class="model-avatar" id="modelAvatarLetter">?</span>
+            <span class="label" id="modelDropdownLabel">none selected</span>
+            <span class="chev">⌄</span>
+          </button>
+          <div class="cdrop-list" id="modelDropdownList">
+            <div class="cdrop-head">
+              <span>models</span>
+              <span class="refresh" id="modelRefresh">⟳ refresh</span>
+            </div>
+            <div id="modelDropdownItems"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- settings modal -->
+<div id="settingsOverlay" class="modal-overlay">
+  <div class="modal">
+    <div class="modal-head">Settings</div>
+    <div class="modal-body">
+      <div class="modal-nav">
+        <div class="modal-nav-item active" data-page="general"><span class="ic">◧</span>General</div>
+        <div class="modal-nav-item" data-page="appearance"><span class="ic">◐</span>Appearance</div>
+        <div class="modal-nav-item" data-page="skills"><span class="ic">✦</span>Skills</div>
+        <div class="modal-nav-item" data-page="mcp"><span class="ic">⛓</span>MCP</div>
+        <div class="modal-nav-item" data-page="data"><span class="ic">⇅</span>Data</div>
+      </div>
+
+      <div class="modal-page" data-content="general">
+        <div class="modal-page-title">General</div>
+        <div class="modal-section">
+          <div class="field">
+            <div class="modal-section-title">Default model</div>
+            <select id="setDefaultModel"><option value="">— none —</option></select>
+          </div>
+          <button class="reset-link" id="defaultModelReset">Reset to Default</button>
+        </div>
+        <div class="modal-section">
+          <div class="field">
+            <div class="modal-section-title">Default thinking level</div>
+            <select id="setDefaultEffort"></select>
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="field">
+            <div class="modal-section-title">Memory (injected as a system prompt every chat)</div>
+            <textarea id="setMemory" placeholder="e.g. Keep answers short. I use Windows and PowerShell."></textarea>
+          </div>
+          <button class="reset-link" id="memoryReset">Reset to Default</button>
+        </div>
+      </div>
+
+      <div class="modal-page" data-content="appearance" style="display:none;">
+        <div class="modal-page-title">Appearance</div>
+        <div class="modal-section">
+          <div class="modal-section-title">Display</div>
+          <div class="layout-choice-row">
+            <div class="layout-choice" data-layout="aligned">
+              <div class="preview">
+                <div class="bar short"></div><div class="bar"></div><div class="bar short"></div>
+              </div>
+              <div class="label">Left-aligned</div>
+            </div>
+            <div class="layout-choice" data-layout="bubbles">
+              <div class="preview">
+                <div class="bar accent"></div><div class="bar short"></div><div class="bar" style="width:70%"></div>
+              </div>
+              <div class="label">Chat bubbles</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Avatars</div>
+          <div class="mcp-hint">Supports jpg or png files smaller than 5MB.</div>
+          <div class="avatar-edit-block">
+            <div class="avatar-edit-label">User Avatar</div>
+            <div class="avatar-edit-row">
+              <div class="avatar" id="youAvatarPreview">🧑</div>
+              <div class="avatar-edit-actions">
+                <button class="pill-outline" id="youUploadBtn">Upload Image</button>
+                <button class="pill-solid" id="youDeleteBtn">Delete</button>
+              </div>
+            </div>
+            <input type="file" id="youAvatarFile" accept="image/png,image/jpeg" style="display:none;" />
+          </div>
+          <div class="avatar-edit-block">
+            <div class="avatar-edit-label">Default Assistant Avatar</div>
+            <div class="avatar-edit-row">
+              <div class="avatar" id="aiAvatarPreview">🤖</div>
+              <div class="avatar-edit-actions">
+                <button class="pill-outline" id="aiUploadBtn">Upload Image</button>
+                <button class="pill-solid" id="aiDeleteBtn">Delete</button>
+              </div>
+            </div>
+            <input type="file" id="aiAvatarFile" accept="image/png,image/jpeg" style="display:none;" />
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Accent color</div>
+          <div class="row" id="accentRow"></div>
+        </div>
+        <div class="modal-section">
+          <div class="toggle-row">
+            <span>Show message info (word count, time)</span>
+            <div class="toggle-switch" id="metaToggle"><div class="knob"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-page" data-content="skills" style="display:none;">
+        <div class="modal-page-title">Skills</div>
+        <div class="mcp-hint">
+          A skill is a chunk of instructions you can turn on or off. Enabled skills get added to the system prompt alongside Memory, so the model follows them every message.
+        </div>
+        <div id="skillsList"></div>
+        <div class="modal-section-title" style="margin-top:16px;">Add a skill</div>
+        <input id="skillNewName" placeholder="skill name" />
+        <textarea id="skillNewPrompt" placeholder="instructions for this skill…" style="margin-top:8px;"></textarea>
+        <button id="skillAddBtn" style="width:100%;margin-top:10px;">add skill</button>
+      </div>
+
+      <div class="modal-page" data-content="mcp" style="display:none;">
+        <div class="modal-page-title">MCP</div>
+        <div class="mcp-hint">
+          Connects to real MCP tool servers over stdio. Connecting a server gives the model real access to whatever that server exposes — check what a server does before connecting it. Tool calls stream into the chat as steps while they run.
+        </div>
+        <div class="toggle-row">
+          <span>Require approval before running tools</span>
+          <div class="toggle-switch" id="approvalToggle"><div class="knob"></div></div>
+        </div>
+        <button class="reset-link" id="clearAutoApproveBtn" style="margin-top:6px;">Clear all "always allow" rules</button>
+        <div id="mcpList" style="margin-top:12px;"></div>
+        <div class="modal-section-title" style="margin-top:16px;">Add a server</div>
+        <div class="field">
+          <select id="mcpPreset">
+            <option value="">— choose a preset, or fill in manually below —</option>
+          </select>
+        </div>
+        <div class="row">
+          <input id="mcpNewName" placeholder="name" />
+          <input id="mcpNewCommand" placeholder="command (e.g. npx)" />
+        </div>
+        <input id="mcpNewArgs" placeholder="args, comma separated" style="width:100%;margin-top:8px;border-radius:24px;padding:10px 16px;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);" />
+        <button id="mcpAddBtn" style="width:100%;margin-top:10px;">add server</button>
+      </div>
+
+      <div class="modal-page" data-content="data" style="display:none;">
+        <div class="modal-page-title">Data</div>
+        <div class="modal-section">
+          <div class="modal-section-title">Backup</div>
+          <div class="mcp-hint">Exports your conversations, avatars, and settings as one JSON file you keep on your own machine.</div>
+          <button class="pill-btn" id="exportDataBtn">Export Data</button>
+        </div>
+        <hr class="modal-hr" />
+        <div class="modal-section">
+          <div class="modal-section-title">Restore</div>
+          <div class="mcp-hint">Importing overwrites your current conversations and settings in this browser.</div>
+          <button class="pill-btn" id="importDataBtn">Import and Restore</button>
+          <input type="file" id="importDataFile" accept="application/json" style="display:none;" />
+        </div>
+        <hr class="modal-hr" />
+        <div class="modal-section">
+          <div class="modal-section-title">Clear</div>
+          <div class="mcp-hint">Deletes every conversation in this browser. Settings are kept.</div>
+          <button id="clearAllBtn" style="color:var(--err);border-color:var(--err);">Clear all conversations</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button id="settingsClose" class="ghost">close</button>
+      <button id="settingsSave" class="primary">save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const messagesEl = $('messages'), inputEl = $('input'), statusDot = $('statusDot');
+
+const ACCENTS = ['#93b0ff','#5ecbb0','#f5a623','#ff6b9d','#c19aff'];
+const DEFAULT_USER_AVATAR = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:60%;height:60%;color:var(--user)"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+const DEFAULT_AI_AVATAR = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:60%;height:60%;color:var(--accent)"><path d="M12 3v4M12 17v4M3 12h4M17 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>';
+const EFFORT_LEVELS = ['off','minimal','low','medium','high','extra high','max','ultra'];
+const MCP_PRESETS = [
+  { label: 'Filesystem (read/write local files)', name: 'filesystem', command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', 'C:\\\\Users\\\\YOUR_USERNAME\\\\Documents'] },
+  { label: 'Memory (persistent notes)', name: 'memory', command: 'npx', args: ['-y', '@modelcontextprotocol/server-memory'] },
+  { label: 'Brave Search (web search)', name: 'brave-search', command: 'npx', args: ['-y', '@modelcontextprotocol/server-brave-search'] },
+  { label: 'GitHub', name: 'github', command: 'npx', args: ['-y', '@modelcontextprotocol/server-github'] },
+  { label: 'SQLite', name: 'sqlite', command: 'npx', args: ['-y', '@modelcontextprotocol/server-sqlite', '--db-path', './data.db'] },
+  { label: 'Puppeteer (browser control)', name: 'puppeteer', command: 'npx', args: ['-y', '@modelcontextprotocol/server-puppeteer'] }
+];
+
+let settings = loadSettings();
+let conversations = loadConversations();
+let activeId = localStorage.getItem('sr_active') || null;
+let pendingAttachments = [];
+let isStreaming = false;
+let queuedMessage = null;
+let modelsList = [];
+let currentAbortController = null;
+
+function loadSettings(){
+  try{ const s = JSON.parse(localStorage.getItem('sr_settings')) || {}; if(!s.skills) s.skills = []; return s; }catch(e){ return { skills: [] }; }
+}
+function saveSettings(){
+  localStorage.setItem('sr_settings', JSON.stringify(settings));
+  applyAccent(); applyLayout();
+}
+function loadConversations(){
+  try{ return JSON.parse(localStorage.getItem('sr_conversations')) || []; }catch(e){ return []; }
+}
+function saveConversations(){ localStorage.setItem('sr_conversations', JSON.stringify(conversations)); }
+
+function applyAccent(){
+  document.documentElement.style.setProperty('--accent', settings.accent || ACCENTS[0]);
+}
+function applyLayout(){
+  messagesEl.classList.toggle('bubbles', settings.layout === 'bubbles');
+}
+
+function activeConvo(){ return conversations.find(c => c.id === activeId); }
+
+function newConversation(){
+  const convo = { id: 'c' + Date.now(), title: 'new chat', model: settings.defaultModel || '', effort: settings.defaultEffort || 'off', messages: [] };
+  conversations.unshift(convo);
+  activeId = convo.id;
+  localStorage.setItem('sr_active', activeId);
+  saveConversations();
+  renderConvoList();
+  renderMessages();
+}
+
+function renderConvoList(){
+  $('convoList').innerHTML = '';
+  for(const c of conversations){
+    const div = document.createElement('div');
+    div.className = 'convo' + (c.id === activeId ? ' active' : '');
+    div.innerHTML = `<span class="title-text">${escapeHtml(c.title)}</span><span class="del">✕</span>`;
+    div.addEventListener('click', (e) => {
+      if(e.target.classList.contains('del')){
+        conversations = conversations.filter(x => x.id !== c.id);
+        if(activeId === c.id) activeId = conversations[0]?.id || null;
+        saveConversations();
+        renderConvoList();
+        renderMessages();
+        return;
+      }
+      activeId = c.id;
+      localStorage.setItem('sr_active', activeId);
+      renderConvoList();
+      renderMessages();
+      updateModelDropdown();
+      updateEffortDropdown();
+    });
+    div.querySelector('.title-text').addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      const span = e.target;
+      const input = document.createElement('input');
+      input.className = 'rename-input';
+      input.value = c.title;
+      span.replaceWith(input);
+      input.focus();
+      input.select();
+      const commit = () => {
+        c.title = input.value.trim() || c.title;
+        saveConversations();
+        renderConvoList();
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', (ev) => {
+        if(ev.key === 'Enter'){ ev.preventDefault(); input.blur(); }
+        if(ev.key === 'Escape'){ input.value = c.title; input.blur(); }
+      });
+    });
+    $('convoList').appendChild(div);
+  }
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------- lightweight markdown + syntax highlighting ---------- */
+function mdInline(line){
+  let s = escapeHtml(line);
+  s = s.replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
+  s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, '<img class="msg-inline-img" src="$2" alt="$1">');
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return s;
+}
+function renderMarkdownBlock(text){
+  const lines = text.split('\n');
+  let html = '';
+  let inUl = false, inOl = false;
+  const closeLists = () => { if(inUl){ html += '</ul>'; inUl = false; } if(inOl){ html += '</ol>'; inOl = false; } };
+  for(const line of lines){
+    const h3 = line.match(/^### (.*)/), h2 = line.match(/^## (.*)/), h1 = line.match(/^# (.*)/);
+    const ul = line.match(/^[-*] (.*)/), ol = line.match(/^\d+\. (.*)/);
+    if(h3){ closeLists(); html += `<h3>${mdInline(h3[1])}</h3>`; continue; }
+    if(h2){ closeLists(); html += `<h2>${mdInline(h2[1])}</h2>`; continue; }
+    if(h1){ closeLists(); html += `<h1>${mdInline(h1[1])}</h1>`; continue; }
+    if(ul){ if(!inUl){ closeLists(); html += '<ul>'; inUl = true; } html += `<li>${mdInline(ul[1])}</li>`; continue; }
+    if(ol){ if(!inOl){ closeLists(); html += '<ol>'; inOl = true; } html += `<li>${mdInline(ol[1])}</li>`; continue; }
+    closeLists();
+    html += (line.trim() === '' ? '<br>' : mdInline(line) + '<br>');
+  }
+  closeLists();
+  return html;
+}
+// Basic pattern-based syntax highlighting (not a real linter — just colors tokens for readability)
+function highlightCode(code){
+  const pattern = /(\/\/[^\n]*|#[^\n]*)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|(\b(?:function|return|if|else|for|while|const|let|var|def|class|import|from|as|true|false|null|None|True|False|async|await|try|catch|except|finally|public|private|static|new|this|self|export|default|switch|case|break|continue|typeof|instanceof|in|of|do|throw|yield)\b)/g;
+  let result = '', lastIndex = 0, m;
+  while((m = pattern.exec(code)) !== null){
+    result += escapeHtml(code.slice(lastIndex, m.index));
+    const [full, comment, str, num, kw] = m;
+    if(comment) result += `<span class="tok-comment">${escapeHtml(comment)}</span>`;
+    else if(str) result += `<span class="tok-string">${escapeHtml(str)}</span>`;
+    else if(num) result += `<span class="tok-number">${escapeHtml(num)}</span>`;
+    else if(kw) result += `<span class="tok-keyword">${escapeHtml(kw)}</span>`;
+    lastIndex = m.index + full.length;
+  }
+  result += escapeHtml(code.slice(lastIndex));
+  return result;
+}
+function renderRichContent(text){
+  const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
+  let html = '';
+  for(let i = 0; i < parts.length; i += 3){
+    const plain = parts[i] || '';
+    if(plain) html += renderMarkdownBlock(plain);
+    if(parts[i+2] !== undefined){
+      const highlighted = highlightCode(parts[i+2]);
+      html += `<div class="codeblock-wrap"><button class="copy-btn" data-code="${encodeURIComponent(parts[i+2])}">copy</button><pre class="codeblock"><code>${highlighted}</code></pre></div>`;
+    }
+  }
+  return html;
+}
+
+function avatarHtml(who){
+  const val = who === 'user' ? (settings.youAvatar || DEFAULT_USER_AVATAR) : (settings.aiAvatar || DEFAULT_AI_AVATAR);
+  if(/^https?:\/\//.test(val) || val.startsWith('data:')){
+    return `<div class="avatar"><img src="${val}"/></div>`;
+  }
+  return `<div class="avatar">${val}</div>`;
+}
+
+function timeStr(ts){
+  return new Date(ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function wordCount(text){
+  return (text || '').trim().split(/\s+/).filter(Boolean).length;
+}
+
+function extractResultImages(resultText){
+  try{
+    const parsed = JSON.parse(resultText);
+    const items = parsed?.content;
+    if(Array.isArray(items)){
+      return items
+        .filter(it => it && it.type === 'image' && it.data)
+        .map(it => `data:${it.mimeType || 'image/png'};base64,${it.data}`);
+    }
+  }catch(e){}
+  return [];
+}
+function buildStepCardHtml(server, tool, args, result, running, pendingApprovalId){
+  const argsStr = JSON.stringify({ tool: `${server}.${tool}`, args: args || {} });
+  const statusLabel = pendingApprovalId ? 'Needs approval' : running ? 'Running' : (result && result.denied) ? 'Denied' : 'Done';
+  const statusClass = pendingApprovalId ? 'running' : running ? 'running' : (result && result.denied) ? 'denied' : 'done';
+  let outputHtml = '';
+  if(result !== null && result !== undefined){
+    if(typeof result === 'string'){
+      const images = extractResultImages(result);
+      if(images.length){
+        outputHtml = `<div class="step-output-label">OUTPUT</div>` + images.map(src => `<img class="msg-inline-img" src="${src}">`).join('');
+      } else {
+        outputHtml = `<div class="step-output-label">OUTPUT</div><div class="step-result">${escapeHtml(result)}</div>`;
+      }
+    }
+  }
+  return `
+    <div class="tool-step-head">
+      <span class="step-icon">${running || pendingApprovalId ? '⟳' : '🔧'}</span>
+      <span class="step-tool">${escapeHtml(server)}</span>
+      <span class="step-status ${statusClass}">${statusLabel}</span>
+      <span class="spacer"></span>
+      <span class="step-copy" title="copy">⧉</span>
+      <span class="step-chev" title="toggle">⌄</span>
+    </div>
+    <div class="tool-step-body">
+      <div class="step-args" data-full="${escapeHtml(argsStr)}">${escapeHtml(argsStr)}</div>
+      ${outputHtml}
+    </div>
+    ${pendingApprovalId ? `<div class="step-approve-row">
+      <button class="deny-btn" data-approval="${escapeHtml(pendingApprovalId)}" data-action="deny">Deny</button>
+      <button class="approve-btn" data-approval="${escapeHtml(pendingApprovalId)}" data-action="allow">Allow</button>
+      <button class="allow-chat-btn" data-approval="${escapeHtml(pendingApprovalId)}" data-action="allow_chat">Always (this chat)</button>
+      <button class="allow-all-btn" data-approval="${escapeHtml(pendingApprovalId)}" data-action="allow_all">Always (all chats)</button>
+    </div>` : ''}
+  `;
+}
+function wireStepCard(div, onApprove, server, tool){
+  const head = div.querySelector('.tool-step-head');
+  const body = div.querySelector('.tool-step-body');
+  head.querySelector('.step-chev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    body.classList.toggle('collapsed');
+  });
+  head.querySelector('.step-copy').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const argsEl = div.querySelector('.step-args');
+    navigator.clipboard.writeText(argsEl ? argsEl.dataset.full : '');
+    const copyEl = e.target;
+    const old = copyEl.textContent;
+    copyEl.textContent = '✓';
+    setTimeout(() => copyEl.textContent = old, 1000);
+  });
+  const approveRow = div.querySelector('.step-approve-row');
+  if(approveRow && onApprove){
+    approveRow.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => onApprove(btn.dataset.approval, btn.dataset.action, div, server, tool));
+    });
+  }
+}
+
+function renderMessages(){
+  messagesEl.innerHTML = '';
+  const convo = activeConvo();
+  if(!convo || convo.messages.length === 0){
+    messagesEl.innerHTML = '<div class="empty">Start typing, or pick a model below first.</div>';
+    return;
+  }
+  for(const m of convo.messages){
+    if(m.role === 'system_ui') { appendMsgDom('system', m.content); continue; }
+    if(m.role === 'system') continue;
+    const wrap = appendMsgDom(m.role, m.displayText ?? m.content, m.attachments, m.meta);
+    if(m.steps && m.steps.length){
+      const stepsEl = document.createElement('div');
+      stepsEl.className = 'tool-steps';
+      wrap.querySelector('.msg-body').insertBefore(stepsEl, wrap.querySelector('.content'));
+      for(const s of m.steps){
+        const div = document.createElement('div');
+        div.className = 'tool-step';
+        div.innerHTML = buildStepCardHtml(s.server, s.tool, s.args, s.result, false);
+        stepsEl.appendChild(div);
+        wireStepCard(div);
+      }
+    }
+  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function appendMsgDom(role, text, attachments, meta){
+  const empty = messagesEl.querySelector('.empty');
+  if(empty) empty.remove();
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + role;
+  const who = role === 'user' ? 'you' : role === 'assistant' ? 'assistant' : 'system';
+  let attachHtml = '';
+  if(attachments){
+    for(const a of attachments){
+      if(a.type === 'image') attachHtml += `<img class="attach-thumb" src="${a.dataUrl}"/>`;
+      else attachHtml += `<div class="attach-file">📄 ${escapeHtml(a.name)}</div>`;
+    }
+  }
+  const showMeta = settings.showMeta !== false;
+  let footerHtml = '';
+  if(role !== 'system'){
+    footerHtml = `<div class="msg-footer">${meta && showMeta ? `<span class="msg-meta">${escapeHtml(meta)}</span>` : ''}<button class="msg-copy-btn" title="copy message">⧉ copy</button></div>`;
+  }
+  wrap.innerHTML = (role === 'system' ? '' : avatarHtml(role)) +
+    `<div class="msg-body"><div class="who">${who}</div><div class="content">${role==='system' ? escapeHtml(text) : renderRichContent(text || '')}</div>${attachHtml}${footerHtml}</div>`;
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  wrap.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(decodeURIComponent(btn.dataset.code));
+      btn.textContent = 'copied';
+      setTimeout(() => btn.textContent = 'copy', 1200);
+    });
+  });
+  const msgCopyBtn = wrap.querySelector('.msg-copy-btn');
+  if(msgCopyBtn){
+    msgCopyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(wrap.querySelector('.content').innerText);
+      msgCopyBtn.textContent = '✓ copied';
+      setTimeout(() => msgCopyBtn.textContent = '⧉ copy', 1200);
+    });
+  }
+  return wrap;
+}
+
+function currentModel(){
+  const convo = activeConvo();
+  return (convo && convo.model) || settings.defaultModel || '';
+}
+function currentEffort(){
+  const convo = activeConvo();
+  return (convo && convo.effort) || settings.defaultEffort || 'off';
+}
+
+function setStatus(ok){
+  statusDot.classList.remove('on','off');
+  statusDot.classList.add(ok ? 'on' : 'off');
+}
+
+/* ---------- model dropdown ---------- */
+function updateModelDropdown(){
+  const model = currentModel();
+  $('modelDropdownLabel').textContent = model || 'none selected';
+  $('modelAvatarLetter').textContent = model ? model[0].toUpperCase() : '?';
+  renderModelDropdownItems();
+}
+function renderModelDropdownItems(){
+  const el = $('modelDropdownItems');
+  const current = currentModel();
+  if(modelsList.length === 0){
+    el.innerHTML = '<div class="mcp-hint" style="padding:6px 8px;">No models loaded — hit refresh.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  modelsList.forEach(id => {
+    const item = document.createElement('div');
+    item.className = 'cdrop-item';
+    item.innerHTML = `<span class="check">${id === current ? '✓' : ''}</span><span class="name">${escapeHtml(id)}</span>`;
+    item.addEventListener('click', () => {
+      const convo = activeConvo();
+      if(convo){ convo.model = id; saveConversations(); }
+      updateModelDropdown();
+      $('modelDropdown').classList.remove('open');
+    });
+    el.appendChild(item);
+  });
+}
+$('modelDropdownBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('effortDropdown').classList.remove('open');
+  $('modelDropdown').classList.toggle('open');
+});
+$('modelDropdownList').addEventListener('click', (e) => e.stopPropagation());
+$('modelRefresh').addEventListener('click', (e) => { e.stopPropagation(); fetchModels(); });
+
+/* ---------- effort ("thinking level") dropdown ---------- */
+function updateEffortDropdown(){
+  const eff = currentEffort();
+  $('effortDropdownLabel').textContent = eff.replace(/^./, c => c.toUpperCase());
+  renderEffortDropdownItems();
+}
+function renderEffortDropdownItems(){
+  const el = $('effortDropdownItems');
+  const current = currentEffort();
+  el.innerHTML = '';
+  EFFORT_LEVELS.forEach(level => {
+    const item = document.createElement('div');
+    item.className = 'cdrop-item';
+    item.innerHTML = `<span class="check">${level === current ? '✓' : ''}</span><span class="name">${escapeHtml(level.replace(/^./, c => c.toUpperCase()))}</span>`;
+    item.addEventListener('click', () => {
+      const convo = activeConvo();
+      if(convo){ convo.effort = level; saveConversations(); }
+      updateEffortDropdown();
+      $('effortDropdown').classList.remove('open');
+    });
+    el.appendChild(item);
+  });
+}
+$('effortDropdownBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('modelDropdown').classList.remove('open');
+  $('effortDropdown').classList.toggle('open');
+});
+$('effortDropdownList').addEventListener('click', (e) => e.stopPropagation());
+document.addEventListener('click', () => {
+  $('modelDropdown').classList.remove('open');
+  $('effortDropdown').classList.remove('open');
+});
+
+async function fetchModels(){
+  $('modelRefresh').textContent = '⟳ loading…';
+  try{
+    const res = await fetch('/api/models');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const list = data.data || data.models || [];
+    modelsList = list.map(m => m.id || m.name || m);
+    setStatus(true);
+  }catch(err){
+    setStatus(false);
+    appendMsgDom('system', 'Could not fetch models: ' + err.message);
+  }finally{
+    $('modelRefresh').textContent = '⟳ refresh';
+    updateModelDropdown();
+    populateDefaultModelSelect();
+  }
+}
+
+/* ---------- attachments ---------- */
+function addAttachment(file){
+  const reader = new FileReader();
+  const isImage = file.type.startsWith('image/');
+  reader.onload = () => {
+    if(isImage) pendingAttachments.push({ type: 'image', name: file.name, dataUrl: reader.result });
+    else pendingAttachments.push({ type: 'text', name: file.name, text: reader.result });
+    renderPendingAttachments();
+  };
+  if(isImage) reader.readAsDataURL(file);
+  else reader.readAsText(file);
+}
+function renderPendingAttachments(){
+  const el = $('pendingAttachments');
+  el.innerHTML = '';
+  pendingAttachments.forEach((a, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'pending-chip';
+    chip.innerHTML = `${a.type === 'image' ? '🖼️' : '📄'} ${escapeHtml(a.name)} <span class="x">✕</span>`;
+    chip.querySelector('.x').addEventListener('click', () => {
+      pendingAttachments.splice(i, 1);
+      renderPendingAttachments();
+    });
+    el.appendChild(chip);
+  });
+}
+$('attachBtn').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', (e) => {
+  [...e.target.files].forEach(addAttachment);
+  e.target.value = '';
+});
+$('convoSettingsBtn').addEventListener('click', () => openSettings());
+['dragenter','dragover'].forEach(ev => document.addEventListener(ev, (e) => {
+  e.preventDefault(); $('dropZone').classList.add('show');
+}));
+['dragleave','drop'].forEach(ev => document.addEventListener(ev, (e) => {
+  e.preventDefault();
+  if(ev === 'drop') [...e.dataTransfer.files].forEach(addAttachment);
+  $('dropZone').classList.remove('show');
+}));
+
+/* ---------- send + streaming ---------- */
+function buildApiMessages(convo){
+  const msgs = [];
+  let sys = '';
+  if(settings.memory && settings.memory.trim()) sys += settings.memory.trim();
+  for(const skill of (settings.skills || [])){
+    if(skill.enabled) sys += (sys ? '\n\n' : '') + `[skill: ${skill.name}]\n${skill.prompt}`;
+  }
+  if(sys) msgs.push({ role: 'system', content: sys });
+  for(const m of convo.messages){
+    if(m.role === 'system_ui') continue;
+    if(m.role === 'system') continue;
+    msgs.push({ role: m.role, content: m.apiContent ?? m.content });
+  }
+  return msgs;
+}
+
+async function send(){
+  const text = inputEl.value.trim();
+  const model = currentModel();
+  if(!text && pendingAttachments.length === 0) return;
+  if(!model){ appendMsgDom('system', 'Pick a model first (bottom right).'); return; }
+
+  let convo = activeConvo();
+  if(!convo){ newConversation(); convo = activeConvo(); }
+  if(convo.title === 'new chat' && text) convo.title = text.slice(0, 40);
+
+  if(isStreaming){
+    queuedMessage = { text, attachments: pendingAttachments.slice() };
+    pendingAttachments = [];
+    renderPendingAttachments();
+    inputEl.value = '';
+    $('inputCount').textContent = '0';
+    $('queueNotice').textContent = 'Queued — will send once the current reply finishes.';
+    $('queueNotice').classList.add('show');
+    return;
+  }
+
+  await actuallySend(convo, text, pendingAttachments.slice());
+  pendingAttachments = [];
+  renderPendingAttachments();
+}
+
+function setSendButtonMode(streaming){
+  const btn = $('sendBtn');
+  btn.classList.toggle('stop', streaming);
+  btn.textContent = streaming ? '■' : '↑';
+  btn.title = streaming ? 'stop' : 'send';
+  btn.disabled = false;
+}
+$('sendBtn').addEventListener('click', () => {
+  if(isStreaming){
+    if(currentAbortController) currentAbortController.abort();
+    return;
+  }
+  send();
+});
+
+async function actuallySend(convo, text, attachments){
+  let apiContent = text;
+  let displayText = text;
+  const imageParts = attachments.filter(a => a.type === 'image');
+  const textParts = attachments.filter(a => a.type === 'text');
+  let extra = '';
+  for(const t of textParts) extra += `\n\n[attached: ${t.name}]\n\`\`\`\n${t.text}\n\`\`\``;
+  if(extra) { apiContent = (text || '') + extra; displayText = (text || '') + extra; }
+
+  if(imageParts.length){
+    apiContent = [
+      { type: 'text', text: apiContent || '(see attached image)' },
+      ...imageParts.map(p => ({ type: 'image_url', image_url: { url: p.dataUrl } }))
+    ];
+  }
+
+  const userTs = Date.now();
+  const userMeta = `${wordCount(displayText)} words · ${timeStr(userTs)}`;
+  convo.messages.push({ role: 'user', content: text, displayText, apiContent, attachments, meta: userMeta });
+  saveConversations();
+  renderConvoList();
+  appendMsgDom('user', displayText, attachments, userMeta);
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+  $('inputCount').textContent = '0';
+
+  isStreaming = true;
+  setSendButtonMode(true);
+  const model = currentModel();
+  const effort = currentEffort();
+  const requireApproval = settings.requireApproval !== false;
+  const assistantWrap = appendMsgDom('assistant', '');
+  const msgBody = assistantWrap.querySelector('.msg-body');
+  const contentEl = assistantWrap.querySelector('.content');
+  const stepsEl = document.createElement('div');
+  stepsEl.className = 'tool-steps';
+  msgBody.insertBefore(stepsEl, contentEl);
+  contentEl.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+  const startedAt = Date.now();
+  let full = '';
+  let firstToken = true;
+  let currentStepDiv = null;
+  const steps = [];
+  currentAbortController = new AbortController();
+
+  function addStep(server, tool, args, pendingApprovalId){
+    const div = document.createElement('div');
+    div.className = 'tool-step' + (pendingApprovalId ? '' : ' pending');
+    div.innerHTML = buildStepCardHtml(server, tool, args, null, true, pendingApprovalId);
+    wireStepCard(div, handleApproval, server, tool);
+    stepsEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return div;
+  }
+  function finishStep(div, server, tool, args, resultText, denied){
+    div.classList.remove('pending');
+    const body = div.querySelector('.tool-step-body');
+    const collapsed = body.classList.contains('collapsed');
+    div.innerHTML = buildStepCardHtml(server, tool, args, denied ? { denied: true } : resultText, false);
+    if(collapsed) div.querySelector('.tool-step-body').classList.add('collapsed');
+    wireStepCard(div);
+  }
+  async function handleApproval(id, action, div, server, tool){
+    div.querySelector('.step-approve-row')?.remove();
+    const approved = action !== 'deny';
+    div.querySelector('.step-status').textContent = approved ? 'Running' : 'Denied';
+    div.querySelector('.step-status').className = 'step-status ' + (approved ? 'running' : 'denied');
+    const key = server + '.' + tool;
+    if(action === 'allow_chat'){
+      convo.autoApproveTools = convo.autoApproveTools || [];
+      if(!convo.autoApproveTools.includes(key)) convo.autoApproveTools.push(key);
+      saveConversations();
+    }
+    if(action === 'allow_all'){
+      settings.autoApproveToolsGlobal = settings.autoApproveToolsGlobal || [];
+      if(!settings.autoApproveToolsGlobal.includes(key)) settings.autoApproveToolsGlobal.push(key);
+      saveSettings();
+    }
+    try{
+      await fetch('/api/mcp/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, approved })
+      });
+    }catch(e){}
+  }
+
+  try{
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: currentAbortController.signal,
+      body: JSON.stringify({
+        model, messages: buildApiMessages(convo), stream: true,
+        reasoning_effort: effort !== 'off' ? effort : undefined,
+        requireApproval
+      })
+    });
+    if(!res.ok || !res.body){
+      const errText = await res.text().catch(() => '');
+      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0, 200));
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    while(true){
+      const { done, value } = await reader.read();
+      if(done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for(const line of lines){
+        const trimmed = line.trim();
+        if(!trimmed.startsWith('data:')) continue;
+        const payload = trimmed.slice(5).trim();
+        if(payload === '[DONE]') continue;
+        try{
+          const json = JSON.parse(payload);
+          if(json.type === 'tool_approval_request'){
+            const key = json.server + '.' + json.tool;
+            const autoChat = (convo.autoApproveTools || []).includes(key);
+            const autoGlobal = (settings.autoApproveToolsGlobal || []).includes(key);
+            if(autoChat || autoGlobal){
+              currentStepDiv = addStep(json.server, json.tool, json.args);
+              steps.push({ server: json.server, tool: json.tool, args: json.args, result: null });
+              fetch('/api/mcp/approve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: json.id, approved: true })
+              }).catch(() => {});
+            } else {
+              currentStepDiv = addStep(json.server, json.tool, json.args, json.id);
+              steps.push({ server: json.server, tool: json.tool, args: json.args, result: null });
+            }
+            continue;
+          }
+          if(json.type === 'tool_call'){
+            if(!currentStepDiv || currentStepDiv.querySelector('.step-approve-row')){
+              currentStepDiv = addStep(json.server, json.tool, json.args);
+              steps.push({ server: json.server, tool: json.tool, args: json.args, result: null });
+            }
+            continue;
+          }
+          if(json.type === 'tool_result'){
+            if(currentStepDiv){
+              const last = steps[steps.length - 1];
+              finishStep(currentStepDiv, last.server, last.tool, last.args, json.result || '', json.denied);
+            }
+            if(steps.length) steps[steps.length - 1].result = json.result || '';
+            currentStepDiv = null;
+            continue;
+          }
+          const delta = json.choices?.[0]?.delta?.content || '';
+          if(delta){
+            if(firstToken){ contentEl.innerHTML = ''; firstToken = false; }
+            full += delta;
+            contentEl.innerHTML = renderRichContent(full);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+        }catch(e){}
+      }
+    }
+    setStatus(true);
+  }catch(err){
+    setStatus(err.name === 'AbortError');
+    if(firstToken) contentEl.innerHTML = '';
+    if(err.name === 'AbortError'){
+      contentEl.innerHTML += `<br><span style="color:var(--muted)">[stopped]</span>`;
+    }else{
+      contentEl.innerHTML += `<br><span style="color:var(--err)">[stream error: ${escapeHtml(err.message)}]</span>`;
+    }
+  }finally{
+    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+    const assistantMeta = `${model} · ${wordCount(full)} words · ${elapsed}s · ${timeStr()}`;
+    if(settings.showMeta !== false){
+      const metaSpan = document.createElement('span');
+      metaSpan.className = 'msg-meta';
+      metaSpan.textContent = assistantMeta;
+      const footer = document.createElement('div');
+      footer.className = 'msg-footer';
+      footer.appendChild(metaSpan);
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'msg-copy-btn';
+      copyBtn.title = 'copy message';
+      copyBtn.textContent = '⧉ copy';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(contentEl.innerText);
+        copyBtn.textContent = '✓ copied';
+        setTimeout(() => copyBtn.textContent = '⧉ copy', 1200);
+      });
+      footer.appendChild(copyBtn);
+      msgBody.appendChild(footer);
+    }
+    convo.messages.push({ role: 'assistant', content: full, apiContent: full, meta: assistantMeta, steps });
+    saveConversations();
+    isStreaming = false;
+    currentAbortController = null;
+    setSendButtonMode(false);
+    if(queuedMessage){
+      const q = queuedMessage; queuedMessage = null;
+      $('queueNotice').classList.remove('show');
+      await actuallySend(convo, q.text, q.attachments);
+    }
+  }
+}
+
+/* ---------- MCP ---------- */
+MCP_PRESETS.forEach((p, i) => {
+  const opt = document.createElement('option');
+  opt.value = String(i);
+  opt.textContent = p.label;
+  $('mcpPreset').appendChild(opt);
+});
+$('mcpPreset').addEventListener('change', () => {
+  const idx = $('mcpPreset').value;
+  if(idx === '') return;
+  const p = MCP_PRESETS[Number(idx)];
+  $('mcpNewName').value = p.name;
+  $('mcpNewCommand').value = p.command;
+  $('mcpNewArgs').value = p.args.join(', ');
+});
+
+async function loadMcpServers(){
+  try{
+    const res = await fetch('/api/mcp/servers');
+    const data = await res.json();
+    renderMcpList(data.servers || []);
+  }catch(e){
+    $('mcpList').innerHTML = '<div class="mcp-hint">Could not reach the server for MCP status.</div>';
+  }
+}
+function renderMcpList(servers){
+  const el = $('mcpList');
+  el.innerHTML = '';
+  if(servers.length === 0){
+    el.innerHTML = '<div class="mcp-hint">No servers configured yet — add one below.</div>';
+    return;
+  }
+  for(const s of servers){
+    const card = document.createElement('div');
+    card.className = 'mcp-server';
+    const toolsHtml = (s.connected && s.tools && s.tools.length)
+      ? `<div class="mcp-tools">${s.tools.map(t => `<span class="mcp-tool-chip">${escapeHtml(t)}</span>`).join('')}</div>`
+      : '';
+    card.innerHTML = `
+      <div class="mcp-server-row">
+        <span class="dot ${s.connected ? 'on' : ''}"></span>
+        <span class="name">${escapeHtml(s.name)}</span>
+        <span class="meta">${s.connected ? s.toolCount + ' tools' : 'not connected'}</span>
+        <span class="spacer"></span>
+        <button class="toggle">${s.connected ? 'disconnect' : 'connect'}</button>
+      </div>
+      <div class="cmd">${escapeHtml(s.command)} ${escapeHtml((s.args || []).join(' '))}</div>
+      ${toolsHtml}
+    `;
+    card.querySelector('.toggle').addEventListener('click', async (e) => {
+      const btn = e.target;
+      btn.disabled = true;
+      btn.textContent = s.connected ? 'disconnecting…' : 'connecting…';
+      try{
+        const res = await fetch(s.connected ? '/api/mcp/disconnect' : '/api/mcp/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: s.name })
+        });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || 'request failed');
+      }catch(err){
+        appendMsgDom('system', `MCP "${s.name}": ${err.message}`);
+      }
+      loadMcpServers();
+    });
+    el.appendChild(card);
+  }
+}
+$('mcpAddBtn').addEventListener('click', async () => {
+  const name = $('mcpNewName').value.trim();
+  const command = $('mcpNewCommand').value.trim();
+  const args = $('mcpNewArgs').value.split(',').map(s => s.trim()).filter(Boolean);
+  if(!name || !command) return;
+  await fetch('/api/mcp/servers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, command, args })
+  });
+  $('mcpNewName').value = ''; $('mcpNewCommand').value = ''; $('mcpNewArgs').value = ''; $('mcpPreset').value = '';
+  loadMcpServers();
+});
+
+let pendingApprovalRequired = true;
+function renderApprovalToggle(){
+  $('approvalToggle').classList.toggle('on', pendingApprovalRequired);
+}
+$('approvalToggle').addEventListener('click', () => {
+  pendingApprovalRequired = !pendingApprovalRequired;
+  renderApprovalToggle();
+});
+$('clearAutoApproveBtn').addEventListener('click', () => {
+  settings.autoApproveToolsGlobal = [];
+  saveSettings();
+  conversations.forEach(c => { c.autoApproveTools = []; });
+  saveConversations();
+  appendMsgDom('system', 'Cleared all always-allow rules.');
+});
+
+/* ---------- skills ---------- */
+function renderSkillsList(){
+  const el = $('skillsList');
+  el.innerHTML = '';
+  if(!settings.skills || settings.skills.length === 0){
+    el.innerHTML = '<div class="mcp-hint">No skills yet — add one below.</div>';
+    return;
+  }
+  settings.skills.forEach((skill, i) => {
+    const div = document.createElement('div');
+    div.className = 'skill-item';
+    div.innerHTML = `
+      <div class="skill-item-row">
+        <span class="skill-name">${escapeHtml(skill.name)}</span>
+        <span class="skill-del" title="delete">✕</span>
+        <div class="toggle-switch ${skill.enabled ? 'on' : ''}"><div class="knob"></div></div>
+      </div>
+      <textarea readonly>${escapeHtml(skill.prompt)}</textarea>
+    `;
+    div.querySelector('.toggle-switch').addEventListener('click', function(){
+      skill.enabled = !skill.enabled;
+      this.classList.toggle('on', skill.enabled);
+      saveSettings();
+    });
+    div.querySelector('.skill-del').addEventListener('click', () => {
+      settings.skills.splice(i, 1);
+      saveSettings();
+      renderSkillsList();
+    });
+    el.appendChild(div);
+  });
+}
+$('skillAddBtn').addEventListener('click', () => {
+  const name = $('skillNewName').value.trim();
+  const prompt = $('skillNewPrompt').value.trim();
+  if(!name || !prompt) return;
+  settings.skills = settings.skills || [];
+  settings.skills.push({ id: 's' + Date.now(), name, prompt, enabled: true });
+  saveSettings();
+  $('skillNewName').value = ''; $('skillNewPrompt').value = '';
+  renderSkillsList();
+});
+
+/* ---------- data backup / restore ---------- */
+$('exportDataBtn').addEventListener('click', () => {
+  const payload = { exportedAt: new Date().toISOString(), settings, conversations };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `subrouter-chat-backup-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+$('importDataBtn').addEventListener('click', () => $('importDataFile').click());
+$('importDataFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if(data.settings) settings = data.settings;
+      if(data.conversations) conversations = data.conversations;
+      saveSettings();
+      saveConversations();
+      activeId = conversations[0]?.id || null;
+      renderConvoList();
+      renderMessages();
+      openSettings();
+      appendMsgDom('system', 'Backup restored.');
+    }catch(err){
+      appendMsgDom('system', 'Could not read that backup file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+$('clearAllBtn').addEventListener('click', () => {
+  conversations = [];
+  saveConversations();
+  newConversation();
+  $('settingsOverlay').classList.remove('show');
+});
+
+/* ---------- settings modal ---------- */
+let pendingLayout = settings.layout || 'aligned';
+let pendingShowMeta = settings.showMeta !== false;
+
+function populateDefaultModelSelect(){
+  const sel = $('setDefaultModel');
+  sel.innerHTML = '<option value="">— none —</option>' +
+    modelsList.map(id => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`).join('');
+  sel.value = settings.defaultModel || '';
+}
+function populateDefaultEffortSelect(){
+  const sel = $('setDefaultEffort');
+  sel.innerHTML = EFFORT_LEVELS.map(l => `<option value="${l}">${l.replace(/^./, c => c.toUpperCase())}</option>`).join('');
+  sel.value = settings.defaultEffort || 'off';
+}
+
+function openSettings(){
+  populateDefaultModelSelect();
+  populateDefaultEffortSelect();
+  $('setMemory').value = settings.memory || '';
+  pendingLayout = settings.layout || 'aligned';
+  pendingShowMeta = settings.showMeta !== false;
+  pendingApprovalRequired = settings.requireApproval !== false;
+  updateAvatarPreviews();
+  renderAccentSwatches();
+  renderLayoutChoice();
+  renderMetaToggle();
+  renderApprovalToggle();
+  renderSkillsList();
+  loadMcpServers();
+  $('settingsOverlay').classList.add('show');
+}
+$('defaultModelReset').addEventListener('click', () => { $('setDefaultModel').value = ''; });
+$('memoryReset').addEventListener('click', () => { $('setMemory').value = ''; });
+
+function updateAvatarPreviews(){
+  $('youAvatarPreview').innerHTML = avatarPreviewInner(settings.youAvatar || DEFAULT_USER_AVATAR);
+  $('aiAvatarPreview').innerHTML = avatarPreviewInner(settings.aiAvatar || DEFAULT_AI_AVATAR);
+}
+function avatarPreviewInner(val){
+  if(/^https?:\/\//.test(val) || val.startsWith('data:')) return `<img src="${val}"/>`;
+  return val;
+}
+function handleAvatarUpload(file, who){
+  if(!file) return;
+  if(file.size > 5 * 1024 * 1024){
+    appendMsgDom('system', 'That image is over 5MB — pick a smaller one.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    if(who === 'you') settings.youAvatar = reader.result;
+    else settings.aiAvatar = reader.result;
+    updateAvatarPreviews();
+  };
+  reader.readAsDataURL(file);
+}
+$('youUploadBtn').addEventListener('click', () => $('youAvatarFile').click());
+$('aiUploadBtn').addEventListener('click', () => $('aiAvatarFile').click());
+$('youAvatarFile').addEventListener('change', (e) => handleAvatarUpload(e.target.files[0], 'you'));
+$('aiAvatarFile').addEventListener('change', (e) => handleAvatarUpload(e.target.files[0], 'ai'));
+$('youDeleteBtn').addEventListener('click', () => { settings.youAvatar = ''; updateAvatarPreviews(); });
+$('aiDeleteBtn').addEventListener('click', () => { settings.aiAvatar = ''; updateAvatarPreviews(); });
+
+function renderAccentSwatches(){
+  const row = $('accentRow');
+  row.innerHTML = '';
+  ACCENTS.forEach(c => {
+    const b = document.createElement('button');
+    b.style.background = c;
+    b.style.border = (settings.accent === c || (!settings.accent && c === ACCENTS[0])) ? '2px solid #fff' : '1px solid var(--border)';
+    b.style.height = '28px';
+    b.addEventListener('click', () => { settings.accent = c; renderAccentSwatches(); });
+    row.appendChild(b);
+  });
+}
+function renderLayoutChoice(){
+  document.querySelectorAll('.layout-choice').forEach(el => {
+    el.classList.toggle('active', el.dataset.layout === pendingLayout);
+  });
+}
+document.querySelectorAll('.layout-choice').forEach(el => {
+  el.addEventListener('click', () => { pendingLayout = el.dataset.layout; renderLayoutChoice(); });
+});
+function renderMetaToggle(){
+  $('metaToggle').classList.toggle('on', pendingShowMeta);
+}
+$('metaToggle').addEventListener('click', () => {
+  pendingShowMeta = !pendingShowMeta;
+  renderMetaToggle();
+});
+
+document.querySelectorAll('.modal-nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.modal-nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    const page = item.dataset.page;
+    document.querySelectorAll('.modal-page').forEach(p => {
+      p.style.display = p.dataset.content === page ? 'block' : 'none';
+    });
+  });
+});
+
+$('settingsBtn').addEventListener('click', openSettings);
+$('settingsClose').addEventListener('click', () => $('settingsOverlay').classList.remove('show'));
+$('settingsSave').addEventListener('click', () => {
+  settings.defaultModel = $('setDefaultModel').value;
+  settings.defaultEffort = $('setDefaultEffort').value;
+  settings.memory = $('setMemory').value;
+  settings.layout = pendingLayout;
+  settings.showMeta = pendingShowMeta;
+  settings.requireApproval = pendingApprovalRequired;
+  saveSettings();
+  $('settingsOverlay').classList.remove('show');
+  renderMessages();
+  updateModelDropdown();
+  updateEffortDropdown();
+});
+
+/* ---------- wiring ---------- */
+$('newChatBtn').addEventListener('click', () => { newConversation(); updateModelDropdown(); updateEffortDropdown(); });
+inputEl.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+});
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  $('inputCount').textContent = String(wordCount(inputEl.value));
+});
+
+applyAccent();
+applyLayout();
+if(conversations.length === 0) newConversation();
+else { renderConvoList(); renderMessages(); }
+fetchModels();
+updateEffortDropdown();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

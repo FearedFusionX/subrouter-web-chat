@@ -1,0 +1,8 @@
+config.json
+node_modules/
+
+# logs / OS cruft
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

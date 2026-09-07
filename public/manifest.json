@@ -1,0 +1,11 @@
+{
+  "name": "subrouter chat",
+  "short_name": "subrouter",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#141312",
+  "theme_color": "#141312",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
