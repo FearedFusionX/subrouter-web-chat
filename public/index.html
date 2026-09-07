@@ -26,7 +26,9 @@
   *{ box-sizing:border-box; }
   html,body{ height:100%; margin:0; }
   body{
-    background:var(--bg);
+    background-color:var(--bg);
+    background-image:var(--bg-gradient,none);
+    background-attachment:fixed;
     color:var(--text);
     font-family:-apple-system,Segoe UI,Inter,system-ui,sans-serif;
     display:flex;
@@ -376,6 +378,38 @@
   .cdrop-item .check{ width:14px; color:var(--accent); flex-shrink:0; font-size:12px; }
   .cdrop-item .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
+  /* ---------- theme + gradient pickers ---------- */
+  .theme-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:8px; }
+  .theme-card{
+    border:1px solid var(--border); border-radius:10px; padding:8px; cursor:pointer;
+    background:var(--panel-alt); transition:border-color .15s, box-shadow .15s;
+  }
+  .theme-card:hover{ border-color:var(--accent-dim); }
+  .theme-card.active{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .theme-card .swatches{ display:flex; gap:3px; margin-bottom:6px; }
+  .theme-card .sw{ flex:1; height:20px; border-radius:4px; }
+  .theme-card .name{ font-size:11px; color:var(--muted); text-align:center; }
+  .theme-card.active .name{ color:var(--text); }
+  .grad-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:8px; }
+  .grad-card{
+    border:1px solid var(--border); border-radius:10px; overflow:hidden; cursor:pointer;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .grad-card:hover{ border-color:var(--accent-dim); }
+  .grad-card.active{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .grad-card .prev{ height:44px; background-color:var(--bg); }
+  .grad-card .name{ font-size:11px; color:var(--muted); text-align:center; padding:5px 2px; background:var(--panel-alt); }
+  .grad-card.active .name{ color:var(--text); }
+  .slider-row{ display:flex; align-items:center; gap:10px; }
+  .slider-row input[type=range]{ flex:1; accent-color:var(--accent); }
+  .slider-row .val{ font-size:12px; color:var(--muted); min-width:38px; text-align:right; }
+  .accent-custom-row{ display:flex; align-items:center; gap:10px; margin-top:8px; }
+  .accent-custom-row input[type=color]{
+    width:38px; height:30px; padding:0; border:1px solid var(--border);
+    border-radius:6px; background:var(--panel-alt); cursor:pointer;
+  }
+  .accent-custom-row .hexbox{ width:104px; text-transform:lowercase; }
+
   /* ---------- settings modal (multi-page, sidebar nav) ---------- */
   .modal-overlay{
     position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
@@ -611,8 +645,28 @@
           </div>
         </div>
         <div class="modal-section">
+          <div class="modal-section-title">Theme</div>
+          <div class="mcp-hint">Sets the base palette. Accent and gradient stack on top of whichever you pick.</div>
+          <div class="theme-grid" id="themeGrid"></div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Background gradient</div>
+          <div class="mcp-hint">Built from your accent, so it follows any theme or custom color.</div>
+          <div class="grad-grid" id="gradGrid"></div>
+          <div class="slider-row" style="margin-top:12px;">
+            <span style="font-size:12px;color:var(--muted);">Intensity</span>
+            <input type="range" id="gradStrength" min="0" max="200" step="5" />
+            <span class="val" id="gradStrengthVal">100%</span>
+          </div>
+        </div>
+        <div class="modal-section">
           <div class="modal-section-title">Accent color</div>
           <div class="row" id="accentRow"></div>
+          <div class="accent-custom-row">
+            <input type="color" id="accentPicker" />
+            <input class="hexbox" id="accentHex" placeholder="#93b0ff" maxlength="7" />
+            <button class="reset-link" id="accentReset">Reset</button>
+          </div>
         </div>
         <div class="modal-section">
           <div class="toggle-row">
@@ -719,6 +773,48 @@ const $ = (id) => document.getElementById(id);
 const messagesEl = $('messages'), inputEl = $('input'), statusDot = $('statusDot');
 
 const ACCENTS = ['#93b0ff','#5ecbb0','#f5a623','#ff6b9d','#c19aff'];
+const THEMES = [
+  { id:'midnight', name:'Midnight', bg:'#141312', panel:'#1d1d1a', panelAlt:'#232320', panelAlt2:'#292925', text:'#f8f8f4', muted:'#a8a29e', border:'rgba(255,255,255,.14)', scheme:'dark' },
+  { id:'slate',    name:'Slate',    bg:'#14181d', panel:'#1b2129', panelAlt:'#212a33', panelAlt2:'#28323d', text:'#eef2f6', muted:'#93a2b0', border:'rgba(255,255,255,.12)', scheme:'dark' },
+  { id:'forest',   name:'Forest',   bg:'#10160f', panel:'#171f16', panelAlt:'#1c261a', panelAlt2:'#232f20', text:'#eef4ea', muted:'#9cae95', border:'rgba(255,255,255,.12)', scheme:'dark' },
+  { id:'plum',     name:'Plum',     bg:'#160f18', panel:'#1e1521', panelAlt:'#251a29', panelAlt2:'#2c2031', text:'#f5eef7', muted:'#af9cb8', border:'rgba(255,255,255,.13)', scheme:'dark' },
+  { id:'paper',    name:'Paper',    bg:'#f4f1ea', panel:'#ffffff', panelAlt:'#ece7db', panelAlt2:'#e2dccb', text:'#22201b', muted:'#6f6a5f', border:'rgba(0,0,0,.10)', scheme:'light' },
+  { id:'blush',    name:'Blush',    bg:'#fbf1f0', panel:'#ffffff', panelAlt:'#f7e4e2', panelAlt2:'#f1d5d2', text:'#241a19', muted:'#8a6d6a', border:'rgba(0,0,0,.09)', scheme:'light' }
+];
+const GRADIENTS = [
+  { id:'none',    name:'None' },
+  { id:'radial-top',  name:'Glow (top)',    css:(a,bg)=>`radial-gradient(1100px 620px at 50% -8%, ${hexA(a,0.30)}, transparent 60%)` },
+  { id:'radial-corner', name:'Corner glow', css:(a,bg)=>`radial-gradient(900px 700px at 100% 0%, ${hexA(a,0.26)}, transparent 55%), radial-gradient(700px 600px at 0% 100%, ${hexA(a,0.16)}, transparent 55%)` },
+  { id:'diagonal', name:'Diagonal',   css:(a,bg)=>`linear-gradient(135deg, ${hexA(a,0.22)} 0%, transparent 45%, transparent 100%)` },
+  { id:'aurora',   name:'Aurora',     css:(a,bg)=>`radial-gradient(1000px 500px at 15% 0%, ${hexA(a,0.24)}, transparent 55%), radial-gradient(900px 600px at 85% 15%, ${hexA(shiftHue(a,60),0.18)}, transparent 55%)` },
+  { id:'vignette', name:'Vignette',   css:(a,bg)=>`radial-gradient(1400px 900px at 50% 40%, transparent 45%, ${hexA(a,0.14)} 100%)` }
+];
+function hexToRgb(hex){
+  const h = hex.replace('#','');
+  const n = h.length===3 ? h.split('').map(c=>c+c).join('') : h;
+  const num = parseInt(n,16);
+  return [(num>>16)&255,(num>>8)&255,num&255];
+}
+function hexA(hex, a){ const [r,g,b] = hexToRgb(hex); return `rgba(${r},${g},${b},${a})`; }
+function shiftHue(hex, deg){
+  let [r,g,b] = hexToRgb(hex).map(v=>v/255);
+  const max=Math.max(r,g,b), min=Math.min(r,g,b); let h,s,l=(max+min)/2;
+  if(max===min){ h=s=0; } else {
+    const d=max-min; s = l>0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max){ case r: h=(g-b)/d+(g<b?6:0); break; case g: h=(b-r)/d+2; break; default: h=(r-g)/d+4; }
+    h/=6;
+  }
+  h = (h + deg/360) % 1;
+  function hue2rgb(p,q,t){ if(t<0)t+=1; if(t>1)t-=1; if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p; }
+  let r2,g2,b2;
+  if(s===0){ r2=g2=b2=l; } else {
+    const q = l<0.5 ? l*(1+s) : l+s-l*s; const p = 2*l-q;
+    r2=hue2rgb(p,q,h+1/3); g2=hue2rgb(p,q,h); b2=hue2rgb(p,q,h-1/3);
+  }
+  const toHex = v => Math.round(v*255).toString(16).padStart(2,'0');
+  return '#'+toHex(r2)+toHex(g2)+toHex(b2);
+}
+
 const DEFAULT_USER_AVATAR = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:60%;height:60%;color:var(--user)"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
 const DEFAULT_AI_AVATAR = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:60%;height:60%;color:var(--accent)"><path d="M12 3v4M12 17v4M3 12h4M17 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>';
 const EFFORT_LEVELS = ['off','minimal','low','medium','high','extra high','max','ultra'];
@@ -753,7 +849,29 @@ function loadConversations(){
 function saveConversations(){ localStorage.setItem('sr_conversations', JSON.stringify(conversations)); }
 
 function applyAccent(){
-  document.documentElement.style.setProperty('--accent', settings.accent || ACCENTS[0]);
+  const themeId = settings.theme || 'midnight';
+  const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+  const root = document.documentElement.style;
+  root.setProperty('--bg', theme.bg);
+  root.setProperty('--panel', theme.panel);
+  root.setProperty('--panel-alt', theme.panelAlt);
+  root.setProperty('--panel-alt2', theme.panelAlt2);
+  root.setProperty('--text', theme.text);
+  root.setProperty('--muted', theme.muted);
+  root.setProperty('--border', theme.border);
+  document.documentElement.style.colorScheme = theme.scheme;
+  const accent = settings.accent || ACCENTS[0];
+  root.setProperty('--accent', accent);
+  root.setProperty('--accent-dim', hexA(accent, 0.78));
+  const gradId = settings.gradient || 'none';
+  const grad = GRADIENTS.find(g => g.id === gradId);
+  const strength = (settings.gradientStrength ?? 100) / 100;
+  if(grad && grad.css && strength > 0){
+    const boosted = hexA(accent, Math.min(1, 0.30 * strength));
+    root.setProperty('--bg-gradient', grad.css(accent, theme.bg).replace(/rgba\([^,]+,[^,]+,[^,]+,[\d.]+\)/, boosted));
+  } else {
+    root.setProperty('--bg-gradient', 'none');
+  }
 }
 function applyLayout(){
   messagesEl.classList.toggle('bubbles', settings.layout === 'bubbles');
@@ -1710,6 +1828,11 @@ function openSettings(){
   pendingApprovalRequired = settings.requireApproval !== false;
   updateAvatarPreviews();
   renderAccentSwatches();
+  renderAccentPicker();
+  renderThemeGrid();
+  renderGradGrid();
+  $('gradStrength').value = settings.gradientStrength ?? 100;
+  $('gradStrengthVal').textContent = ($('gradStrength').value) + '%';
   renderLayoutChoice();
   renderMetaToggle();
   renderApprovalToggle();
@@ -1762,6 +1885,55 @@ function renderAccentSwatches(){
     row.appendChild(b);
   });
 }
+function renderThemeGrid(){
+  const grid = $('themeGrid'); grid.innerHTML = '';
+  THEMES.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'theme-card' + ((settings.theme||'midnight')===t.id ? ' active':'');
+    card.innerHTML = `<div class="swatches"><div class="sw" style="background:${t.bg}"></div><div class="sw" style="background:${t.panel}"></div><div class="sw" style="background:${t.panelAlt2}"></div></div><div class="name">${t.name}</div>`;
+    card.addEventListener('click', () => { settings.theme = t.id; applySettings(); renderThemeGrid(); renderGradGrid(); });
+    grid.appendChild(card);
+  });
+}
+function renderGradGrid(){
+  const grid = $('gradGrid'); grid.innerHTML = '';
+  const accent = settings.accent || ACCENTS[0];
+  GRADIENTS.forEach(g => {
+    const card = document.createElement('div');
+    card.className = 'grad-card' + ((settings.gradient||'none')===g.id ? ' active':'');
+    const bg = g.css ? g.css(accent) : 'none';
+    card.innerHTML = `<div class="prev" style="background-image:${bg}"></div><div class="name">${g.name}</div>`;
+    card.addEventListener('click', () => { settings.gradient = g.id; applySettings(); renderGradGrid(); });
+    grid.appendChild(card);
+  });
+}
+function renderAccentPicker(){
+  const accent = settings.accent || ACCENTS[0];
+  $('accentPicker').value = accent;
+  $('accentHex').value = accent;
+}
+$('accentPicker').addEventListener('input', () => {
+  settings.accent = $('accentPicker').value;
+  $('accentHex').value = settings.accent;
+  applySettings(); renderAccentSwatches(); renderGradGrid();
+});
+$('accentHex').addEventListener('input', () => {
+  let v = $('accentHex').value.trim();
+  if(!v.startsWith('#')) v = '#'+v;
+  if(/^#[0-9a-fA-F]{6}$/.test(v)){
+    settings.accent = v; $('accentPicker').value = v;
+    applySettings(); renderAccentSwatches(); renderGradGrid();
+  }
+});
+$('accentReset').addEventListener('click', () => {
+  delete settings.accent;
+  applySettings(); renderAccentSwatches(); renderAccentPicker(); renderGradGrid();
+});
+$('gradStrength').addEventListener('input', () => {
+  settings.gradientStrength = parseInt($('gradStrength').value, 10);
+  $('gradStrengthVal').textContent = settings.gradientStrength + '%';
+  applySettings();
+});
 function renderLayoutChoice(){
   document.querySelectorAll('.layout-choice').forEach(el => {
     el.classList.toggle('active', el.dataset.layout === pendingLayout);
