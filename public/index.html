@@ -115,8 +115,55 @@
     flex:1; background:var(--panel-alt2); border:1px solid var(--accent-dim); border-radius:4px;
     color:var(--text); font-size:13px; padding:1px 4px; font-family:inherit;
   }
-  .convo .del{ margin-left:auto; opacity:0; font-size:11px; color:var(--err); flex-shrink:0; }
+  /* row actions: rename + delete, revealed on hover */
+  .convo .actions{ margin-left:auto; display:flex; align-items:center; gap:1px; flex-shrink:0; }
+  .convo .act{
+    opacity:0; font-size:11px; color:var(--muted); cursor:pointer;
+    padding:2px 4px; border-radius:calc(4px * var(--radius));
+  }
+  .convo:hover .act, .convo.active .act{ opacity:1; }
+  .convo .act:hover{ color:var(--text); background:var(--panel-alt2); }
+  .convo .del{ color:var(--err); }
   .convo:hover .del{ opacity:1; }
+  .convo .del:hover{ color:var(--err); background:var(--panel-alt2); }
+
+  /* ---------- sidebar search ---------- */
+  .sidebar-search{ position:relative; margin:8px 16px 2px; }
+  #convoSearch{
+    width:100%; background:var(--panel-alt); border:1px solid var(--border);
+    color:var(--text); font-family:var(--font-ui); font-size:12.5px;
+    padding:7px 26px 7px 12px; border-radius:calc(18px * var(--radius)); outline:none;
+  }
+  #convoSearch:focus{ border-color:var(--accent-dim); }
+  #convoSearch::placeholder{ color:var(--muted); }
+  .sidebar-search .cs-clear{
+    position:absolute; right:9px; top:50%; transform:translateY(-50%);
+    font-size:11px; color:var(--muted); cursor:pointer; display:none;
+  }
+  .sidebar-search .cs-clear:hover{ color:var(--text); }
+  .sidebar-search.has-text .cs-clear{ display:block; }
+
+  .search-hit{
+    font-size:11.5px; color:var(--muted); line-height:1.45; cursor:pointer;
+    padding:5px 10px 6px 18px; margin-bottom:2px;
+    border-left:2px solid var(--border); border-radius:calc(6px * var(--radius));
+  }
+  .search-hit:hover{ background:var(--panel-alt); color:var(--text); border-left-color:var(--accent); }
+  .search-hit .hit-role{
+    font-size:9.5px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--muted); opacity:.7; margin-right:5px;
+  }
+  .search-more{ font-size:11px; color:var(--accent); cursor:pointer; padding:1px 10px 7px 18px; }
+  .search-more:hover{ text-decoration:underline; }
+  .search-empty{ font-size:12px; color:var(--muted); padding:16px 10px; }
+  mark{ background:var(--accent-soft); color:var(--accent); border-radius:3px; padding:0 2px; }
+
+  /* the message you jumped to, briefly lit up */
+  .msg.jump-target .content{ animation:jumpFlash 1.8s var(--ease) both; border-radius:6px; }
+  @keyframes jumpFlash{
+    0%, 50%{ box-shadow:0 0 0 6px var(--accent-soft); background:var(--accent-soft); }
+    100%{ box-shadow:0 0 0 6px transparent; background:transparent; }
+  }
 
   #sidebarFooter{
     border-top:1px solid var(--border); padding:10px 16px; display:flex; gap:8px;
@@ -801,6 +848,10 @@
       <button id="sidebarToggle" class="rail-btn" data-tip="Collapse sidebar (Ctrl+B)">‹</button>
     </div>
     <button id="newChatBtn" class="primary" data-tip="Start a new conversation">+ New chat</button>
+    <div class="sidebar-search">
+      <input id="convoSearch" placeholder="Search chats and messages…" autocomplete="off" data-tip="Search titles and message text (Ctrl+K)" />
+      <span class="cs-clear" id="convoSearchClear">✕</span>
+    </div>
     <div class="navlabel">Conversations</div>
     <div id="convoList"></div>
     <div id="sidebarFooter">
@@ -1560,6 +1611,9 @@ function newConversation(){
 }
 
 function renderConvoList(){
+  const searchEl = $('convoSearch');
+  const q = searchEl ? searchEl.value.trim() : '';
+  if(q){ renderSearchResults(q); return; }
   $('convoList').innerHTML = '';
   const showTimes = settings.showConvoTimes !== false;
   const sorted = conversations.slice().sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
@@ -1581,7 +1635,10 @@ function renderConvoList(){
       (c.totalMs ? '\nModel time: ' + (c.totalMs / 1000).toFixed(1) + 's' : '');
     div.innerHTML = `<span class="title-text">${escapeHtml(c.title)}</span>` +
       (showTimes ? `<span class="convo-time">${escapeHtml(convoTimeLabel(c.updatedAt))}</span>` : '') +
-      `<span class="del">✕</span>`;
+      `<span class="actions">` +
+        `<span class="act rename" data-tip="Rename (or double-click the name)">✎</span>` +
+        `<span class="act del" data-tip="Delete this chat">✕</span>` +
+      `</span>`;
     div.addEventListener('click', (e) => {
       if(e.target.classList.contains('del')){
         conversations = conversations.filter(x => x.id !== c.id);
@@ -1591,36 +1648,43 @@ function renderConvoList(){
         renderMessages();
         return;
       }
-      activeId = c.id;
-      localStorage.setItem('sr_active', activeId);
-      renderConvoList();
-      renderMessages();
-      updateModelDropdown();
-      updateEffortDropdown();
+      if(e.target.classList.contains('rename')){ e.stopPropagation(); startRename(div, c); return; }
+      openConversation(c.id);
     });
     div.querySelector('.title-text').addEventListener('dblclick', (e) => {
       e.stopPropagation();
-      const span = e.target;
-      const input = document.createElement('input');
-      input.className = 'rename-input';
-      input.value = c.title;
-      span.replaceWith(input);
-      input.focus();
-      input.select();
-      const commit = () => {
-        c.title = input.value.trim() || c.title;
-        c.titleLocked = true;   // never auto-retitle a conversation the user named
-        saveConversations();
-        renderConvoList();
-      };
-      input.addEventListener('blur', commit);
-      input.addEventListener('keydown', (ev) => {
-        if(ev.key === 'Enter'){ ev.preventDefault(); input.blur(); }
-        if(ev.key === 'Escape'){ input.value = c.title; input.blur(); }
-      });
+      startRename(div, c);
     });
     $('convoList').appendChild(div);
   }
+}
+
+/* Rename in place. Reachable from the ✎ button and by double-clicking the name. */
+function startRename(row, c){
+  const span = row.querySelector('.title-text');
+  if(!span) return;
+  const input = document.createElement('input');
+  input.className = 'rename-input';
+  input.value = c.title;
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+  let settled = false;
+  const commit = () => {
+    if(settled) return;
+    settled = true;
+    c.title = input.value.trim() || c.title;
+    c.titleLocked = true;   // never auto-retitle a conversation the user named
+    saveConversations();
+    renderConvoList();
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('click', (e) => e.stopPropagation());
+  input.addEventListener('keydown', (ev) => {
+    ev.stopPropagation();   // keep Ctrl+B / Ctrl+K from firing mid-rename
+    if(ev.key === 'Enter'){ ev.preventDefault(); input.blur(); }
+    if(ev.key === 'Escape'){ settled = true; renderConvoList(); }
+  });
 }
 
 function escapeHtml(s){
@@ -1759,6 +1823,95 @@ function relTime(ts){
   return d.toLocaleDateString([], { day:'numeric', month:'short', year:'2-digit' });
 }
 /* which sidebar bucket a conversation falls into */
+/* ---------- search ----------
+   Matches conversation titles and message text. Titles and bodies are searched
+   together so one box covers both "which chat was that" and "where did I say X". */
+function escapeRegex(str){ return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+function highlightMatch(text, q){
+  const esc = escapeHtml(text);
+  // the needle is escaped too, so it matches the already-escaped haystack
+  const re = new RegExp(escapeRegex(escapeHtml(q)), 'gi');
+  return esc.replace(re, m => '<mark>' + m + '</mark>');
+}
+function makeSnippet(text, at, qLen, pad){
+  pad = pad || 40;
+  const start = Math.max(0, at - pad);
+  const end = Math.min(text.length, at + qLen + pad);
+  const body = text.slice(start, end).replace(/\s+/g, ' ').trim();
+  return (start > 0 ? '…' : '') + body + (end < text.length ? '…' : '');
+}
+function searchConversations(q){
+  const needle = q.toLowerCase();
+  const out = [];
+  for(const c of conversations){
+    const titleMatch = (c.title || '').toLowerCase().includes(needle);
+    const hits = [];
+    (c.messages || []).forEach((m, i) => {
+      if(m.role === 'system') return;
+      const text = m.displayText ?? m.content ?? '';
+      if(typeof text !== 'string') return;
+      const at = text.toLowerCase().indexOf(needle);
+      if(at >= 0) hits.push({ i, at, text, role: m.role });
+    });
+    if(titleMatch || hits.length) out.push({ convo: c, titleMatch, hits });
+  }
+  return out.sort((a, b) => (b.convo.updatedAt || 0) - (a.convo.updatedAt || 0));
+}
+function renderSearchResults(q){
+  const list = $('convoList');
+  list.innerHTML = '';
+  const results = searchConversations(q).slice(0, 40);
+  if(!results.length){
+    list.innerHTML = '<div class="search-empty">No chats or messages match “' + escapeHtml(q) + '”.</div>';
+    return;
+  }
+  const totalHits = results.reduce((n, r) => n + r.hits.length, 0);
+  const head = document.createElement('div');
+  head.className = 'convo-group';
+  head.textContent = results.length + (results.length === 1 ? ' chat' : ' chats') +
+    (totalHits ? ' · ' + totalHits + (totalHits === 1 ? ' message' : ' messages') : '');
+  list.appendChild(head);
+
+  for(const r of results){
+    const row = document.createElement('div');
+    row.className = 'convo' + (r.convo.id === activeId ? ' active' : '');
+    row.innerHTML = '<span class="title-text">' + highlightMatch(r.convo.title || '', q) + '</span>' +
+      '<span class="convo-time">' + escapeHtml(relTime(r.convo.updatedAt)) + '</span>';
+    row.addEventListener('click', () => openConversation(r.convo.id));
+    list.appendChild(row);
+
+    const shown = r.hits.slice(0, 3);
+    for(const h of shown){
+      const hit = document.createElement('div');
+      hit.className = 'search-hit';
+      hit.innerHTML = '<span class="hit-role">' + (h.role === 'user' ? 'you' : 'reply') + '</span>' +
+        highlightMatch(makeSnippet(h.text, h.at, q.length), q);
+      hit.addEventListener('click', () => openConversation(r.convo.id, h.i));
+      list.appendChild(hit);
+    }
+    if(r.hits.length > shown.length){
+      const more = document.createElement('div');
+      more.className = 'search-more';
+      more.textContent = '+' + (r.hits.length - shown.length) + ' more in this chat';
+      more.addEventListener('click', () => openConversation(r.convo.id, r.hits[shown.length].i));
+      list.appendChild(more);
+    }
+  }
+}
+
+/* Opens a conversation, optionally scrolling to one message and flashing it. */
+let pendingJump = null;
+function openConversation(id, msgIndex){
+  activeId = id;
+  localStorage.setItem('sr_active', activeId);
+  pendingJump = (msgIndex === undefined || msgIndex === null) ? null : msgIndex;
+  renderConvoList();
+  renderMessages();
+  updateModelDropdown();
+  updateEffortDropdown();
+}
+
 function convoTimeLabel(ts){
   const f = settings.timeFormat || 'relative';
   if(f === 'clock') return timeStr(ts);
@@ -1859,10 +2012,13 @@ function renderMessages(){
     messagesEl.innerHTML = '<div class="empty">Start typing, or pick a model below first.</div>';
     return;
   }
+  let mi = -1;
   for(const m of convo.messages){
-    if(m.role === 'system_ui') { appendMsgDom('system', m.content); continue; }
+    mi++;
+    if(m.role === 'system_ui') { appendMsgDom('system', m.content).dataset.mi = mi; continue; }
     if(m.role === 'system') continue;
     const wrap = appendMsgDom(m.role, m.displayText ?? m.content, m.attachments, m.meta, m);
+    wrap.dataset.mi = mi;
     if(m.steps && m.steps.length){
       const stepsEl = document.createElement('div');
       stepsEl.className = 'tool-steps';
@@ -1875,6 +2031,16 @@ function renderMessages(){
         stepsEl.appendChild(div);
         wireStepCard(div);
       }
+    }
+  }
+  if(pendingJump !== null){
+    const target = messagesEl.querySelector('.msg[data-mi="' + pendingJump + '"]');
+    pendingJump = null;
+    if(target){
+      target.scrollIntoView({ block: 'center' });
+      target.classList.add('jump-target');
+      setTimeout(() => target.classList.remove('jump-target'), 1800);
+      return;
     }
   }
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -3102,6 +3268,30 @@ document.querySelectorAll('#animSpeedRow .seg-btn').forEach(el => {
     settings.animSpeed = el.dataset.speed;
     applyAppearance(); renderMotionControls();
   });
+});
+
+/* ---------- sidebar search ---------- */
+function syncSearchBox(){
+  $('convoSearch').parentElement.classList.toggle('has-text', !!$('convoSearch').value);
+}
+function clearConvoSearch(){
+  $('convoSearch').value = '';
+  syncSearchBox();
+  renderConvoList();
+}
+$('convoSearch').addEventListener('input', () => { syncSearchBox(); renderConvoList(); });
+$('convoSearch').addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if(e.key === 'Escape'){ clearConvoSearch(); $('convoSearch').blur(); }
+});
+$('convoSearchClear').addEventListener('click', clearConvoSearch);
+document.addEventListener('keydown', (e) => {
+  if((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'k' || e.key === 'K')){
+    e.preventDefault();
+    if(settings.sidebarCollapsed) setSidebarCollapsed(false);
+    $('convoSearch').focus();
+    $('convoSearch').select();
+  }
 });
 
 /* ---------- sidebar collapse ---------- */
