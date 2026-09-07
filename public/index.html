@@ -385,11 +385,6 @@
     position:relative;
   }
   .icon-btn:hover{ color:var(--text); border-color:var(--accent-dim); }
-  .icon-btn[data-tip]:hover::after{
-    content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
-    background:var(--panel-alt2); border:1px solid var(--border); color:var(--text); font-size:11px;
-    padding:5px 9px; border-radius:6px; white-space:nowrap; z-index:30; pointer-events:none;
-  }
   #fileInput{ display:none; }
   .composer-count{ font-size:11px; color:var(--muted); }
 
@@ -674,24 +669,29 @@
   }
   .ct-field label{ font-size:11.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-  /* ---------- tooltips ---------- */
-  /* only give static elements a positioning context — never steal it from one
-     that is already absolutely placed (the send button, the sidebar opener) */
-  [data-tip]:where(:not(.composer-send):not(.sidebar-open)){ position:relative; }
-  [data-tip]:hover::after{
-    content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%;
-    transform:translateX(-50%);
+  /* ---------- tooltips ----------
+     One element on <body>, placed in fixed coordinates by JS. As a pseudo-element
+     the tooltip was clipped by every ancestor with overflow — the settings modal's
+     scroll area, the sidebar, the model list — and flipping which side it points
+     to cannot fix clipping. A body-level node escapes all of them. */
+  #tipEl{
+    position:fixed; left:0; top:0; z-index:9999; pointer-events:none; display:none;
+    width:max-content; max-width:min(280px, calc(100vw - 24px));
     background:var(--panel-alt2); border:1px solid var(--border); color:var(--text);
-    font-size:11px; font-weight:400; letter-spacing:0; text-transform:none;
-    padding:5px 9px; border-radius:calc(6px * var(--radius)); white-space:nowrap;
-    z-index:200; pointer-events:none;
-    box-shadow:0 6px 18px rgba(0,0,0,.35);
-    animation:fadeIn var(--anim) var(--ease) both;
+    font-family:var(--font-ui); font-size:11.5px; font-weight:400; line-height:1.45;
+    letter-spacing:0; text-transform:none; text-align:left; white-space:normal;
+    padding:6px 10px; border-radius:calc(6px * var(--radius));
+    box-shadow:0 8px 22px rgba(0,0,0,.4);
   }
-  /* near the window edges, anchor the tooltip to the side that has room */
-  [data-tip][data-tip-pos="right"]:hover::after{ left:0; transform:none; }
-  [data-tip][data-tip-pos="left"]:hover::after{ left:auto; right:0; transform:none; }
-  [data-tip][data-tip-pos="below"]:hover::after{ bottom:auto; top:calc(100% + 8px); }
+  #tipEl.show{ display:block; animation:fadeIn var(--anim) var(--ease) both; }
+  /* the arrow keeps pointing at the target even after the box is clamped */
+  #tipEl::after{
+    content:''; position:absolute; left:var(--tip-arrow,50%); margin-left:-5px;
+    top:100%; border:5px solid transparent; border-top-color:var(--panel-alt2);
+  }
+  #tipEl.below::after{
+    top:auto; bottom:100%; border-top-color:transparent; border-bottom-color:var(--panel-alt2);
+  }
 
   @media (max-width:720px){
     /* sidebar floats over the chat instead of squeezing it */
@@ -800,11 +800,11 @@
       <span id="statusDot" class="dot"></span><b>subrouter</b>
       <button id="sidebarToggle" class="rail-btn" data-tip="Collapse sidebar (Ctrl+B)">‹</button>
     </div>
-    <button id="newChatBtn" class="primary" data-tip="Start a new conversation">+ new chat</button>
-    <div class="navlabel">conversations</div>
+    <button id="newChatBtn" class="primary" data-tip="Start a new conversation">+ New chat</button>
+    <div class="navlabel">Conversations</div>
     <div id="convoList"></div>
     <div id="sidebarFooter">
-      <button id="settingsBtn" data-tip="Settings">⚙ settings</button>
+      <button id="settingsBtn" data-tip="Settings">⚙ Settings</button>
     </div>
   </div>
 </div>
@@ -812,7 +812,7 @@
 
 <div id="main">
   <button id="sidebarOpen" class="sidebar-open" data-tip="Open sidebar (Ctrl+B)">›</button>
-  <div id="dropZone">drop files or images to attach</div>
+  <div id="dropZone">Drop files or images to attach</div>
 
   <div id="messages"></div>
 
@@ -832,7 +832,7 @@
       <div class="composer-left">
         <button id="attachBtn" class="icon-btn" data-tip="Attach a file or image">+</button>
         <input id="fileInput" type="file" multiple />
-        <button id="convoSettingsBtn" class="icon-btn" data-tip="Conversation Settings">☰</button>
+        <button id="convoSettingsBtn" class="icon-btn" data-tip="Conversation settings">☰</button>
       </div>
       <div class="composer-right">
         <span id="inputCount" class="composer-count">0</span>
@@ -843,7 +843,7 @@
             <span class="chev">⌄</span>
           </button>
           <div class="cdrop-list" id="effortDropdownList">
-            <div class="cdrop-head"><span>thinking level</span></div>
+            <div class="cdrop-head"><span>Thinking level</span></div>
             <div id="effortDropdownItems"></div>
           </div>
         </div>
@@ -851,13 +851,13 @@
         <div class="cdrop" id="modelDropdown">
           <button class="cdrop-btn" id="modelDropdownBtn">
             <span class="model-avatar" id="modelAvatarLetter">?</span>
-            <span class="label" id="modelDropdownLabel">none selected</span>
+            <span class="label" id="modelDropdownLabel">None selected</span>
             <span class="chev">⌄</span>
           </button>
           <div class="cdrop-list" id="modelDropdownList">
             <div class="cdrop-head">
-              <span>models</span>
-              <span class="refresh" id="modelRefresh" data-tip="Reload the model list">⟳ refresh</span>
+              <span>Models</span>
+              <span class="refresh" id="modelRefresh" data-tip="Reload the model list">⟳ Refresh</span>
             </div>
             <div id="modelDropdownItems"></div>
           </div>
@@ -891,9 +891,9 @@
         <div class="modal-section">
           <div class="field">
             <div class="modal-section-title">Default model</div>
-            <select id="setDefaultModel"><option value="">— none —</option></select>
+            <select id="setDefaultModel"><option value="">— None —</option></select>
           </div>
-          <button class="reset-link" id="defaultModelReset">Reset to Default</button>
+          <button class="reset-link" id="defaultModelReset">Reset to default</button>
         </div>
         <div class="modal-section">
           <div class="field">
@@ -903,10 +903,10 @@
         </div>
         <div class="modal-section">
           <div class="field">
-            <div class="modal-section-title">Memory (injected as a system prompt every chat)</div>
+            <div class="modal-section-title">Memory (injected as a system prompt on every message)</div>
             <textarea id="setMemory" placeholder="e.g. Keep answers short. I use Windows and PowerShell."></textarea>
           </div>
-          <button class="reset-link" id="memoryReset">Reset to Default</button>
+          <button class="reset-link" id="memoryReset">Reset to default</button>
         </div>
       </div>
 
@@ -992,24 +992,24 @@
         </div>
         <div class="modal-section">
           <div class="modal-section-title">Avatars</div>
-          <div class="mcp-hint">Supports jpg or png files smaller than 5MB.</div>
+          <div class="mcp-hint">Supports JPG and PNG files smaller than 5&nbsp;MB.</div>
           <div class="avatar-edit-block">
-            <div class="avatar-edit-label">User Avatar</div>
+            <div class="avatar-edit-label">Your avatar</div>
             <div class="avatar-edit-row">
               <div class="avatar" id="youAvatarPreview">🧑</div>
               <div class="avatar-edit-actions">
-                <button class="pill-outline" id="youUploadBtn">Upload Image</button>
+                <button class="pill-outline" id="youUploadBtn">Upload image</button>
                 <button class="pill-solid" id="youDeleteBtn">Delete</button>
               </div>
             </div>
             <input type="file" id="youAvatarFile" accept="image/png,image/jpeg" style="display:none;" />
           </div>
           <div class="avatar-edit-block">
-            <div class="avatar-edit-label">Default Assistant Avatar</div>
+            <div class="avatar-edit-label">Default assistant avatar</div>
             <div class="avatar-edit-row">
               <div class="avatar" id="aiAvatarPreview">🤖</div>
               <div class="avatar-edit-actions">
-                <button class="pill-outline" id="aiUploadBtn">Upload Image</button>
+                <button class="pill-outline" id="aiUploadBtn">Upload image</button>
                 <button class="pill-solid" id="aiDeleteBtn">Delete</button>
               </div>
             </div>
@@ -1032,7 +1032,7 @@
         </div>
         <div class="modal-section">
           <div class="modal-section-title">Background gradient</div>
-          <div class="mcp-hint">Built from your accent, so it follows any theme or custom color.</div>
+          <div class="mcp-hint">Built from your accent, so it follows any theme or custom colour you pick.</div>
           <div class="grad-grid" id="gradGrid"></div>
           <div class="slider-row" style="margin-top:12px;">
             <span style="font-size:12px;color:var(--muted);">Intensity</span>
@@ -1175,9 +1175,9 @@
         </div>
         <div id="skillsList"></div>
         <div class="modal-section-title" style="margin-top:16px;">Add a skill</div>
-        <input id="skillNewName" placeholder="skill name" />
-        <textarea id="skillNewPrompt" placeholder="instructions for this skill…" style="margin-top:8px;"></textarea>
-        <button id="skillAddBtn" style="width:100%;margin-top:10px;">add skill</button>
+        <input id="skillNewName" placeholder="Skill name" />
+        <textarea id="skillNewPrompt" placeholder="Instructions for this skill…" style="margin-top:8px;"></textarea>
+        <button id="skillAddBtn" style="width:100%;margin-top:10px;">Add skill</button>
       </div>
 
       <div class="modal-page" data-content="api" style="display:none;">
@@ -1194,8 +1194,8 @@
         <div class="modal-section">
           <div class="field">
             <div class="modal-section-title">API token</div>
-            <div class="mcp-hint" id="apiKeyStatus" style="margin-bottom:8px;">checking…</div>
-            <input id="setApiKey" type="password" placeholder="paste a new token to replace the current one" autocomplete="off" />
+            <div class="mcp-hint" id="apiKeyStatus" style="margin-bottom:8px;">Checking…</div>
+            <input id="setApiKey" type="password" placeholder="Paste a new token to replace the current one" autocomplete="off" />
             <div class="mcp-hint" style="margin-top:6px;">Leave blank to keep the existing token.</div>
           </div>
           <button class="reset-link" id="apiKeyToggleVis">Show token field</button>
@@ -1220,15 +1220,15 @@
         <div class="modal-section-title" style="margin-top:16px;">Add a server</div>
         <div class="field">
           <select id="mcpPreset">
-            <option value="">— choose a preset, or fill in manually below —</option>
+            <option value="">— Choose a preset, or fill it in manually below —</option>
           </select>
         </div>
         <div class="row">
-          <input id="mcpNewName" placeholder="name" />
-          <input id="mcpNewCommand" placeholder="command (e.g. npx)" />
+          <input id="mcpNewName" placeholder="Name" />
+          <input id="mcpNewCommand" placeholder="Command (e.g. npx)" />
         </div>
-        <input id="mcpNewArgs" placeholder="args, comma separated" style="width:100%;margin-top:8px;border-radius:24px;padding:10px 16px;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);" />
-        <button id="mcpAddBtn" style="width:100%;margin-top:10px;">add server</button>
+        <input id="mcpNewArgs" placeholder="Arguments, separated by commas" style="width:100%;margin-top:8px;border-radius:24px;padding:10px 16px;background:var(--panel-alt);border:1px solid var(--border);color:var(--text);" />
+        <button id="mcpAddBtn" style="width:100%;margin-top:10px;">Add server</button>
       </div>
 
       <div class="modal-page" data-content="data" style="display:none;">
@@ -1236,13 +1236,13 @@
         <div class="modal-section">
           <div class="modal-section-title">Backup</div>
           <div class="mcp-hint">Exports your conversations, avatars, and settings as one JSON file you keep on your own machine.</div>
-          <button class="pill-btn" id="exportDataBtn">Export Data</button>
+          <button class="pill-btn" id="exportDataBtn">Export data</button>
         </div>
         <hr class="modal-hr" />
         <div class="modal-section">
           <div class="modal-section-title">Restore</div>
           <div class="mcp-hint">Importing overwrites your current conversations and settings in this browser.</div>
-          <button class="pill-btn" id="importDataBtn">Import and Restore</button>
+          <button class="pill-btn" id="importDataBtn">Import and restore</button>
           <input type="file" id="importDataFile" accept="application/json" style="display:none;" />
         </div>
         <hr class="modal-hr" />
@@ -1254,11 +1254,13 @@
       </div>
     </div>
     <div class="modal-foot">
-      <button id="settingsClose" class="ghost">close</button>
-      <button id="settingsSave" class="primary">save</button>
+      <button id="settingsClose" class="ghost">Close</button>
+      <button id="settingsSave" class="primary">Save</button>
     </div>
   </div>
 </div>
+
+<div id="tipEl" role="tooltip"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -1548,7 +1550,7 @@ function activeConvo(){ return conversations.find(c => c.id === activeId); }
 
 function newConversation(){
   const now = Date.now();
-  const convo = { id: 'c' + now, title: 'new chat', createdAt: now, updatedAt: now, model: settings.defaultModel || '', effort: settings.defaultEffort || 'off', messages: [] };
+  const convo = { id: 'c' + now, title: 'New chat', createdAt: now, updatedAt: now, model: settings.defaultModel || '', effort: settings.defaultEffort || 'off', messages: [] };
   conversations.unshift(convo);
   activeId = convo.id;
   localStorage.setItem('sr_active', activeId);
@@ -1728,7 +1730,7 @@ function renderRichContent(text){
     if(plain) html += renderMarkdownBlock(plain);
     if(parts[i+2] !== undefined){
       const highlighted = highlightCode(parts[i+2]);
-      html += `<div class="codeblock-wrap"><button class="copy-btn" data-code="${encodeURIComponent(parts[i+2])}">copy</button><pre class="codeblock"><code>${highlighted}</code></pre></div>`;
+      html += `<div class="codeblock-wrap"><button class="copy-btn" data-code="${encodeURIComponent(parts[i+2])}">Copy</button><pre class="codeblock"><code>${highlighted}</code></pre></div>`;
     }
   }
   return html;
@@ -1749,7 +1751,7 @@ function timeStr(ts){
 function relTime(ts){
   if(!ts) return '';
   const diff = Date.now() - ts, d = new Date(ts);
-  if(diff < 60e3) return 'now';
+  if(diff < 60e3) return 'Now';
   if(diff < 3600e3) return Math.floor(diff/60e3) + 'm';
   if(diff < 86400e3) return Math.floor(diff/3600e3) + 'h';
   if(diff < 7*86400e3) return d.toLocaleDateString([], { weekday:'short' });
@@ -1811,8 +1813,8 @@ function buildStepCardHtml(server, tool, args, result, running, pendingApprovalI
       <span class="step-status ${statusClass}">${statusLabel}</span>
       ${ms != null && settings.showStepTimes !== false ? `<span class="step-time">${(ms / 1000).toFixed(1)}s</span>` : ''}
       <span class="spacer"></span>
-      <span class="step-copy" title="copy">⧉</span>
-      <span class="step-chev" title="toggle">⌄</span>
+      <span class="step-copy" data-tip="Copy the arguments">⧉</span>
+      <span class="step-chev" data-tip="Expand or collapse">⌄</span>
     </div>
     <div class="tool-step-body">
       <div class="step-args" data-full="${escapeHtml(argsStr)}">${escapeHtml(argsStr)}</div>
@@ -1899,8 +1901,8 @@ function wireCodeCopyButtons(wrap){
   wrap.querySelectorAll('.codeblock-wrap .copy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(decodeURIComponent(btn.dataset.code));
-      btn.textContent = 'copied';
-      setTimeout(() => btn.textContent = 'copy', 1200);
+      btn.textContent = 'Copied';
+      setTimeout(() => btn.textContent = 'Copy', 1200);
     });
   });
 }
@@ -1910,7 +1912,7 @@ function appendMsgDom(role, text, attachments, meta, msgObj){
   if(empty) empty.remove();
   const wrap = document.createElement('div');
   wrap.className = 'msg ' + role;
-  const who = role === 'user' ? 'you' : role === 'assistant' ? 'assistant' : 'system';
+  const who = role === 'user' ? 'You' : role === 'assistant' ? 'Assistant' : 'System';
   let attachHtml = '';
   if(attachments){
     for(const a of attachments){
@@ -1921,7 +1923,7 @@ function appendMsgDom(role, text, attachments, meta, msgObj){
   const showMeta = settings.showMeta !== false;
   let footerHtml = '';
   if(role !== 'system'){
-    footerHtml = `<div class="msg-footer">${meta && showMeta ? `<span class="msg-meta">${escapeHtml(meta)}</span>` : ''}<button class="msg-copy-btn" title="copy message">⧉ copy</button></div>`;
+    footerHtml = `<div class="msg-footer">${meta && showMeta ? `<span class="msg-meta">${escapeHtml(meta)}</span>` : ''}<button class="msg-copy-btn" data-tip="Copy this message">⧉ Copy</button></div>`;
   }
   wrap.innerHTML = (role === 'system' ? '' : avatarHtml(role)) +
     `<div class="msg-body"><div class="who">${who}</div><div class="content">${role==='system' ? escapeHtml(text) : renderRichContent(text || '')}</div>${attachHtml}${footerHtml}</div>`;
@@ -1933,8 +1935,8 @@ function appendMsgDom(role, text, attachments, meta, msgObj){
   if(msgCopyBtn){
     msgCopyBtn.addEventListener('click', () => {
       navigator.clipboard.writeText(wrap.querySelector('.content').innerText);
-      msgCopyBtn.textContent = '✓ copied';
-      setTimeout(() => msgCopyBtn.textContent = '⧉ copy', 1200);
+      msgCopyBtn.textContent = '✓ Copied';
+      setTimeout(() => msgCopyBtn.textContent = '⧉ Copy', 1200);
     });
   }
   return wrap;
@@ -1957,7 +1959,7 @@ function setStatus(ok){
 /* ---------- model dropdown ---------- */
 function updateModelDropdown(){
   const model = currentModel();
-  $('modelDropdownLabel').textContent = model || 'none selected';
+  $('modelDropdownLabel').textContent = model || 'None selected';
   $('modelAvatarLetter').textContent = model ? model[0].toUpperCase() : '?';
   renderModelDropdownItems();
 }
@@ -2161,7 +2163,7 @@ function renderQueueStrip(){
         '<span class="q-x" data-note="' + i + '">✕</span></div>').join('') +
       messageQueue.map((q,i) =>
         '<div class="queue-item"><span class="q-kind">msg</span>' +
-        '<span class="q-text">' + escapeHtml(q.text || '(attachment only)') + '</span>' +
+        '<span class="q-text">' + escapeHtml(q.text || '(Attachment only)') + '</span>' +
         '<span class="q-x" data-queue="' + i + '">✕</span></div>').join('') +
     '</div>';
   el.classList.add('show');
@@ -2210,7 +2212,7 @@ async function send(){
 
   let convo = activeConvo();
   if(!convo){ newConversation(); convo = activeConvo(); }
-  if(convo.title === 'new chat' && text) convo.title = text.slice(0, 40);
+  if(convo.title.toLowerCase() === 'new chat' && text) convo.title = text.slice(0, 40);
   convo.updatedAt = Date.now();
 
   if(isStreaming){
@@ -2443,9 +2445,9 @@ async function actuallySend(convo, text, attachments){
     setStatus(err.name === 'AbortError');
     if(firstToken) contentEl.innerHTML = '';
     if(err.name === 'AbortError'){
-      contentEl.innerHTML += `<br><span style="color:var(--muted)">[stopped]</span>`;
+      contentEl.innerHTML += `<br><span style="color:var(--muted)">[Stopped]</span>`;
     }else{
-      contentEl.innerHTML += `<br><span style="color:var(--err)">[stream error: ${escapeHtml(err.message)}]</span>`;
+      contentEl.innerHTML += `<br><span style="color:var(--err)">[Stream error: ${escapeHtml(err.message)}]</span>`;
     }
   }finally{
     clearInterval(timerTick);
@@ -2464,12 +2466,12 @@ async function actuallySend(convo, text, attachments){
       footer.appendChild(metaSpan);
       const copyBtn = document.createElement('button');
       copyBtn.className = 'msg-copy-btn';
-      copyBtn.title = 'copy message';
-      copyBtn.textContent = '⧉ copy';
+      copyBtn.setAttribute('data-tip', 'Copy this message');
+      copyBtn.textContent = '⧉ Copy';
       copyBtn.addEventListener('click', () => {
         navigator.clipboard.writeText(contentEl.innerText);
-        copyBtn.textContent = '✓ copied';
-        setTimeout(() => copyBtn.textContent = '⧉ copy', 1200);
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => copyBtn.textContent = '⧉ Copy', 1200);
       });
       footer.appendChild(copyBtn);
       msgBody.appendChild(footer);
@@ -2713,7 +2715,7 @@ let pendingShowMeta = settings.showMeta !== false;
 
 function populateDefaultModelSelect(){
   const sel = $('setDefaultModel');
-  sel.innerHTML = '<option value="">— none —</option>' +
+  sel.innerHTML = '<option value="">— None —</option>' +
     modelsList.map(id => `<option value="${escapeHtml(id)}">${escapeHtml(id)}</option>`).join('');
   sel.value = settings.defaultModel || '';
 }
@@ -2777,7 +2779,7 @@ $('apiTestBtn').addEventListener('click', async () => {
     const r = await fetch('/api/models');
     const j = await r.json();
     const n = (j.data || j.models || []).length;
-    out.textContent = r.ok && n ? ('✓ connected — ' + n + ' models available')
+    out.textContent = r.ok && n ? ('✓ Connected — ' + n + ' models available')
                                 : ('✗ ' + (j.error?.message || j.error || 'HTTP ' + r.status));
   }catch(err){ out.textContent = '✗ ' + err.message; }
 });
@@ -3202,18 +3204,63 @@ $('enterSendsToggle').addEventListener('click', () => {
     : 'Type your question here… (Ctrl+Enter to send)';
 });
 
-/* Tooltips flip toward whichever side has room, so edge elements stay readable. */
+/* ---------- tooltips ----------
+   Positioned against the viewport rather than the hovered element's box, so no
+   ancestor's overflow can clip it. Long text wraps instead of running off-screen. */
+const tipEl = $('tipEl');
+let tipTarget = null, tipTimer = null;
+
+function hideTip(){
+  clearTimeout(tipTimer);
+  tipTarget = null;
+  tipEl.classList.remove('show');
+}
+function showTip(el){
+  const text = el.getAttribute('data-tip');
+  if(!text) return;
+  tipEl.textContent = text;
+  tipEl.classList.remove('below');
+  tipEl.classList.add('show');
+  // measure from a known origin; width comes from max-width, not from position
+  tipEl.style.left = '0px';
+  tipEl.style.top = '0px';
+  const r = el.getBoundingClientRect();
+  const t = tipEl.getBoundingClientRect();
+  const pad = 8;
+  // above by default, below when there is no room up top
+  let below = false;
+  let top = r.top - t.height - pad;
+  if(top < pad){ top = r.bottom + pad; below = true; }
+  // centre on the target, then clamp so it stays fully on screen
+  let left = r.left + r.width / 2 - t.width / 2;
+  left = Math.max(pad, Math.min(left, window.innerWidth - t.width - pad));
+  tipEl.style.left = Math.round(left) + 'px';
+  tipEl.style.top = Math.round(top) + 'px';
+  tipEl.classList.toggle('below', below);
+  const arrow = Math.max(10, Math.min(r.left + r.width / 2 - left, t.width - 10));
+  tipEl.style.setProperty('--tip-arrow', Math.round(arrow) + 'px');
+}
 document.addEventListener('mouseover', (e) => {
   const el = e.target.closest && e.target.closest('[data-tip]');
-  if(!el) return;
-  const r = el.getBoundingClientRect();
-  const w = Math.max(90, el.getAttribute('data-tip').length * 6.2);
-  let pos = '';
-  if(r.left + r.width/2 - w/2 < 8) pos = 'right';
-  else if(r.left + r.width/2 + w/2 > window.innerWidth - 8) pos = 'left';
-  if(r.top < 40) pos = pos ? pos : 'below';
-  if(pos) el.setAttribute('data-tip-pos', pos); else el.removeAttribute('data-tip-pos');
+  if(!el || el === tipTarget) return;
+  hideTip();
+  tipTarget = el;
+  tipTimer = setTimeout(() => {
+    if(tipTarget === el && el.isConnected) showTip(el);
+  }, 250);
 });
+document.addEventListener('mouseout', (e) => {
+  if(!tipTarget) return;
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if(el !== tipTarget) return;
+  if(e.relatedTarget && tipTarget.contains(e.relatedTarget)) return;  // moved onto a child
+  hideTip();
+});
+// a fixed tooltip would float away from its target once anything moves
+document.addEventListener('mousedown', hideTip);
+document.addEventListener('scroll', hideTip, true);
+window.addEventListener('resize', hideTip);
+window.addEventListener('blur', hideTip);
 
 function renderMetaToggle(){
   $('metaToggle').classList.toggle('on', pendingShowMeta);
