@@ -378,6 +378,18 @@
   .cdrop-item .check{ width:14px; color:var(--accent); flex-shrink:0; font-size:12px; }
   .cdrop-item .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
+  /* ---------- font size + density ---------- */
+  body{ font-size:calc(14px * var(--font-scale,1)); }
+  body.compact .msg{ margin-bottom:8px; gap:8px; }
+  body.compact .msg-body{ padding-top:0; }
+  .seg-row{ display:flex; gap:6px; }
+  .seg-btn{
+    flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel-alt); color:var(--muted); cursor:pointer; font-size:12.5px; text-align:center;
+  }
+  .seg-btn:hover{ border-color:var(--accent-dim); }
+  .seg-btn.active{ border-color:var(--accent); color:var(--text); background:var(--panel-alt2); }
+
   /* ---------- theme + gradient pickers ---------- */
   .theme-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:8px; }
   .theme-card{
@@ -669,6 +681,20 @@
           </div>
         </div>
         <div class="modal-section">
+          <div class="modal-section-title">Text size</div>
+          <div class="seg-row" id="fontSizeRow">
+            <div class="seg-btn" data-size="0.9">Small</div>
+            <div class="seg-btn" data-size="1">Medium</div>
+            <div class="seg-btn" data-size="1.15">Large</div>
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="toggle-row">
+            <span>Compact message spacing</span>
+            <div class="toggle-switch" id="compactToggle"><div class="knob"></div></div>
+          </div>
+        </div>
+        <div class="modal-section">
           <div class="toggle-row">
             <span>Show message info (word count, time)</span>
             <div class="toggle-switch" id="metaToggle"><div class="knob"></div></div>
@@ -774,12 +800,12 @@ const messagesEl = $('messages'), inputEl = $('input'), statusDot = $('statusDot
 
 const ACCENTS = ['#93b0ff','#5ecbb0','#f5a623','#ff6b9d','#c19aff'];
 const THEMES = [
-  { id:'midnight', name:'Midnight', bg:'#141312', panel:'#1d1d1a', panelAlt:'#232320', panelAlt2:'#292925', text:'#f8f8f4', muted:'#a8a29e', border:'rgba(255,255,255,.14)', scheme:'dark' },
-  { id:'slate',    name:'Slate',    bg:'#14181d', panel:'#1b2129', panelAlt:'#212a33', panelAlt2:'#28323d', text:'#eef2f6', muted:'#93a2b0', border:'rgba(255,255,255,.12)', scheme:'dark' },
-  { id:'forest',   name:'Forest',   bg:'#10160f', panel:'#171f16', panelAlt:'#1c261a', panelAlt2:'#232f20', text:'#eef4ea', muted:'#9cae95', border:'rgba(255,255,255,.12)', scheme:'dark' },
-  { id:'plum',     name:'Plum',     bg:'#160f18', panel:'#1e1521', panelAlt:'#251a29', panelAlt2:'#2c2031', text:'#f5eef7', muted:'#af9cb8', border:'rgba(255,255,255,.13)', scheme:'dark' },
-  { id:'paper',    name:'Paper',    bg:'#f4f1ea', panel:'#ffffff', panelAlt:'#ece7db', panelAlt2:'#e2dccb', text:'#22201b', muted:'#6f6a5f', border:'rgba(0,0,0,.10)', scheme:'light' },
-  { id:'blush',    name:'Blush',    bg:'#fbf1f0', panel:'#ffffff', panelAlt:'#f7e4e2', panelAlt2:'#f1d5d2', text:'#241a19', muted:'#8a6d6a', border:'rgba(0,0,0,.09)', scheme:'light' }
+  { id:'midnight', name:'Midnight', bg:'#0b0a09', panel:'#131211', panelAlt:'#1a1917', panelAlt2:'#211f1c', text:'#f8f8f4', muted:'#a8a29e', border:'rgba(255,255,255,.13)', scheme:'dark', accent:'#93b0ff' },
+  { id:'slate',    name:'Slate',    bg:'#0b0e12', panel:'#121722', panelAlt:'#182130', panelAlt2:'#1f2a3a', text:'#eef2f6', muted:'#93a2b0', border:'rgba(255,255,255,.11)', scheme:'dark', accent:'#6fa8ff' },
+  { id:'forest',   name:'Forest',   bg:'#0a0e09', panel:'#11170f', panelAlt:'#161f14', panelAlt2:'#1c2819', text:'#eef4ea', muted:'#9cae95', border:'rgba(255,255,255,.11)', scheme:'dark', accent:'#5ecbb0' },
+  { id:'plum',     name:'Plum',     bg:'#0e0a10', panel:'#160f19', panelAlt:'#1d1521', panelAlt2:'#251a29', text:'#f5eef7', muted:'#af9cb8', border:'rgba(255,255,255,.12)', scheme:'dark', accent:'#c19aff' },
+  { id:'paper',    name:'Paper',    bg:'#e9e4d8', panel:'#f7f4ec', panelAlt:'#ddd6c4', panelAlt2:'#d1c9b3', text:'#22201b', muted:'#6f6a5f', border:'rgba(0,0,0,.12)', scheme:'light', accent:'#3d5ea8' },
+  { id:'blush',    name:'Blush',    bg:'#f2ddd9', panel:'#fbf1ef', panelAlt:'#eccbc6', panelAlt2:'#e3bab4', text:'#241a19', muted:'#8a6d6a', border:'rgba(0,0,0,.11)', scheme:'light', accent:'#c04e6e' }
 ];
 const GRADIENTS = [
   { id:'none',    name:'None' },
@@ -860,6 +886,8 @@ function applyAccent(){
   root.setProperty('--muted', theme.muted);
   root.setProperty('--border', theme.border);
   document.documentElement.style.colorScheme = theme.scheme;
+  root.setProperty('--font-scale', settings.fontSize || 1);
+  document.body.classList.toggle('compact', !!settings.compact);
   const accent = settings.accent || ACCENTS[0];
   root.setProperty('--accent', accent);
   root.setProperty('--accent-dim', hexA(accent, 0.78));
@@ -1831,6 +1859,8 @@ function openSettings(){
   renderAccentPicker();
   renderThemeGrid();
   renderGradGrid();
+  renderFontSizeRow();
+  renderCompactToggle();
   $('gradStrength').value = settings.gradientStrength ?? 100;
   $('gradStrengthVal').textContent = ($('gradStrength').value) + '%';
   renderLayoutChoice();
@@ -1891,7 +1921,7 @@ function renderThemeGrid(){
     const card = document.createElement('div');
     card.className = 'theme-card' + ((settings.theme||'midnight')===t.id ? ' active':'');
     card.innerHTML = `<div class="swatches"><div class="sw" style="background:${t.bg}"></div><div class="sw" style="background:${t.panel}"></div><div class="sw" style="background:${t.panelAlt2}"></div></div><div class="name">${t.name}</div>`;
-    card.addEventListener('click', () => { settings.theme = t.id; applySettings(); renderThemeGrid(); renderGradGrid(); });
+    card.addEventListener('click', () => { settings.theme = t.id; settings.accent = t.accent; applyAccent(); renderThemeGrid(); renderGradGrid(); renderAccentSwatches(); renderAccentPicker(); });
     grid.appendChild(card);
   });
 }
@@ -1903,7 +1933,7 @@ function renderGradGrid(){
     card.className = 'grad-card' + ((settings.gradient||'none')===g.id ? ' active':'');
     const bg = g.css ? g.css(accent) : 'none';
     card.innerHTML = `<div class="prev" style="background-image:${bg}"></div><div class="name">${g.name}</div>`;
-    card.addEventListener('click', () => { settings.gradient = g.id; applySettings(); renderGradGrid(); });
+    card.addEventListener('click', () => { settings.gradient = g.id; applyAccent(); renderGradGrid(); });
     grid.appendChild(card);
   });
 }
@@ -1915,24 +1945,24 @@ function renderAccentPicker(){
 $('accentPicker').addEventListener('input', () => {
   settings.accent = $('accentPicker').value;
   $('accentHex').value = settings.accent;
-  applySettings(); renderAccentSwatches(); renderGradGrid();
+  applyAccent(); renderAccentSwatches(); renderGradGrid();
 });
 $('accentHex').addEventListener('input', () => {
   let v = $('accentHex').value.trim();
   if(!v.startsWith('#')) v = '#'+v;
   if(/^#[0-9a-fA-F]{6}$/.test(v)){
     settings.accent = v; $('accentPicker').value = v;
-    applySettings(); renderAccentSwatches(); renderGradGrid();
+    applyAccent(); renderAccentSwatches(); renderGradGrid();
   }
 });
 $('accentReset').addEventListener('click', () => {
   delete settings.accent;
-  applySettings(); renderAccentSwatches(); renderAccentPicker(); renderGradGrid();
+  applyAccent(); renderAccentSwatches(); renderAccentPicker(); renderGradGrid();
 });
 $('gradStrength').addEventListener('input', () => {
   settings.gradientStrength = parseInt($('gradStrength').value, 10);
   $('gradStrengthVal').textContent = settings.gradientStrength + '%';
-  applySettings();
+  applyAccent();
 });
 function renderLayoutChoice(){
   document.querySelectorAll('.layout-choice').forEach(el => {
@@ -1941,6 +1971,24 @@ function renderLayoutChoice(){
 }
 document.querySelectorAll('.layout-choice').forEach(el => {
   el.addEventListener('click', () => { pendingLayout = el.dataset.layout; renderLayoutChoice(); });
+});
+function renderFontSizeRow(){
+  document.querySelectorAll('#fontSizeRow .seg-btn').forEach(el => {
+    el.classList.toggle('active', parseFloat(el.dataset.size) === (settings.fontSize || 1));
+  });
+}
+document.querySelectorAll('#fontSizeRow .seg-btn').forEach(el => {
+  el.addEventListener('click', () => {
+    settings.fontSize = parseFloat(el.dataset.size);
+    applyAccent(); renderFontSizeRow();
+  });
+});
+function renderCompactToggle(){
+  $('compactToggle').classList.toggle('on', !!settings.compact);
+}
+$('compactToggle').addEventListener('click', () => {
+  settings.compact = !settings.compact;
+  applyAccent(); renderCompactToggle();
 });
 function renderMetaToggle(){
   $('metaToggle').classList.toggle('on', pendingShowMeta);
