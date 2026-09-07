@@ -44,6 +44,9 @@
     --anim-rise:8px;
     --ease:cubic-bezier(.22,.61,.36,1);
     --sidebar-w:260px;
+    --msg-width:760px;
+    --bubble-width:560px;
+    --radius:1;
     color-scheme: dark;
   }
   *{ box-sizing:border-box; }
@@ -177,7 +180,7 @@
     flex:1; overflow-y:auto; padding:24px 22px 8px;
     display:flex; flex-direction:column; gap:2px;
   }
-  .msg{ display:flex; gap:10px; max-width:760px; margin-bottom:16px; }
+  .msg{ display:flex; gap:10px; max-width:var(--msg-width); margin-bottom:16px; }
   .avatar{
     width:28px; height:28px; border-radius:50%; flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
@@ -223,7 +226,7 @@
   /* tool call steps (mcp) — pi-style card */
   .tool-steps{ margin-bottom:8px; display:flex; flex-direction:column; gap:8px; }
   .tool-step{
-    border:1px solid var(--border); border-radius:10px; background:var(--panel-alt); overflow:hidden;
+    border:1px solid var(--border); border-radius:calc(10px * var(--radius)); background:var(--panel-alt); overflow:hidden;
     font-family:var(--font-mono); font-size:calc(12px * var(--code-scale));
   }
   .tool-step-head{
@@ -267,7 +270,7 @@
   #messages.bubbles .msg.user .msg-body{ display:flex; flex-direction:column; align-items:flex-end; }
   #messages.bubbles .msg.assistant .msg-body{ display:flex; flex-direction:column; align-items:flex-start; }
   #messages.bubbles .msg .content{
-    display:inline-block; max-width:560px; padding:10px 14px; border-radius:16px;
+    display:inline-block; max-width:var(--bubble-width); padding:10px 14px; border-radius:calc(16px * var(--radius));
   }
   #messages.bubbles .msg.user .content{ background:var(--accent); color:var(--on-accent); border-bottom-right-radius:4px; }
   #messages.bubbles .msg.assistant .content{ background:var(--panel-alt2); border-bottom-left-radius:4px; }
@@ -284,7 +287,7 @@
 
   .codeblock-wrap{ position:relative; margin:8px 0; }
   pre.codeblock{
-    background:var(--panel-alt); border:1px solid var(--border); border-radius:8px;
+    background:var(--panel-alt); border:1px solid var(--border); border-radius:calc(8px * var(--radius));
     padding:34px 14px 12px; margin:0; overflow-x:auto;
   }
   pre.codeblock code{ font-size:calc(13px * var(--code-scale)); line-height:1.5; color:var(--text); }
@@ -332,7 +335,7 @@
     position:relative;
     margin:10px 22px 20px;
     border:1px solid var(--border);
-    border-radius:16px;
+    border-radius:calc(16px * var(--radius));
     background:var(--panel-alt);
     display:flex; flex-direction:column;
   }
@@ -558,6 +561,42 @@
   body.sidebar-collapsed #messages{ padding-top:50px; }
   #sidebarScrim{ display:none; }
 
+  /* ---------- conversation list: date buckets + relative times ---------- */
+  .convo-group{
+    font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);
+    padding:12px 10px 4px; opacity:.75;
+  }
+  .convo-group:first-child{ padding-top:2px; }
+  .convo-time{ font-size:10.5px; color:var(--muted); opacity:.7; flex-shrink:0; }
+  .convo:hover .convo-time{ display:none; }
+  .convo.active .convo-time{ color:var(--accent); opacity:.9; }
+
+  /* ---------- custom theme builder ---------- */
+  .ct-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .ct-field{ display:flex; align-items:center; gap:8px; }
+  .ct-field input[type=color]{
+    width:30px; height:26px; padding:0; border:1px solid var(--border);
+    border-radius:calc(6px * var(--radius)); background:var(--panel-alt); cursor:pointer; flex-shrink:0;
+  }
+  .ct-field label{ font-size:11.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ---------- tooltips ---------- */
+  [data-tip]{ position:relative; }
+  [data-tip]:hover::after{
+    content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%;
+    transform:translateX(-50%);
+    background:var(--panel-alt2); border:1px solid var(--border); color:var(--text);
+    font-size:11px; font-weight:400; letter-spacing:0; text-transform:none;
+    padding:5px 9px; border-radius:calc(6px * var(--radius)); white-space:nowrap;
+    z-index:200; pointer-events:none;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    animation:fadeIn var(--anim) var(--ease) both;
+  }
+  /* near the window edges, anchor the tooltip to the side that has room */
+  [data-tip][data-tip-pos="right"]:hover::after{ left:0; transform:none; }
+  [data-tip][data-tip-pos="left"]:hover::after{ left:auto; right:0; transform:none; }
+  [data-tip][data-tip-pos="below"]:hover::after{ bottom:auto; top:calc(100% + 8px); }
+
   @media (max-width:720px){
     /* sidebar floats over the chat instead of squeezing it */
     #sidebar{ position:fixed; top:0; bottom:0; left:0; z-index:45; box-shadow:0 0 40px rgba(0,0,0,.45); }
@@ -661,20 +700,20 @@
   <div id="sidebarInner">
     <div class="brand">
       <span id="statusDot" class="dot"></span><b>subrouter</b>
-      <button id="sidebarToggle" class="rail-btn" title="Collapse sidebar (Ctrl+B)">‹</button>
+      <button id="sidebarToggle" class="rail-btn" data-tip="Collapse sidebar (Ctrl+B)">‹</button>
     </div>
-    <button id="newChatBtn" class="primary">+ new chat</button>
+    <button id="newChatBtn" class="primary" data-tip="Start a new conversation">+ new chat</button>
     <div class="navlabel">conversations</div>
     <div id="convoList"></div>
     <div id="sidebarFooter">
-      <button id="settingsBtn">⚙ settings</button>
+      <button id="settingsBtn" data-tip="Settings">⚙ settings</button>
     </div>
   </div>
 </div>
 <div id="sidebarScrim"></div>
 
 <div id="main">
-  <button id="sidebarOpen" class="sidebar-open" title="Open sidebar (Ctrl+B)">›</button>
+  <button id="sidebarOpen" class="sidebar-open" data-tip="Open sidebar (Ctrl+B)">›</button>
   <div id="dropZone">drop files or images to attach</div>
 
   <div id="messages"></div>
@@ -684,10 +723,10 @@
 
   <div id="composer">
     <textarea id="input" rows="1" placeholder="Type your question here…"></textarea>
-    <button id="sendBtn" class="composer-send" title="send">↑</button>
+    <button id="sendBtn" class="composer-send" data-tip="Send">↑</button>
     <div class="composer-toolbar">
       <div class="composer-left">
-        <button id="attachBtn" class="icon-btn" title="attach file/image">+</button>
+        <button id="attachBtn" class="icon-btn" data-tip="Attach a file or image">+</button>
         <input id="fileInput" type="file" multiple />
         <button id="convoSettingsBtn" class="icon-btn" data-tip="Conversation Settings">☰</button>
       </div>
@@ -714,7 +753,7 @@
           <div class="cdrop-list" id="modelDropdownList">
             <div class="cdrop-head">
               <span>models</span>
-              <span class="refresh" id="modelRefresh">⟳ refresh</span>
+              <span class="refresh" id="modelRefresh" data-tip="Reload the model list">⟳ refresh</span>
             </div>
             <div id="modelDropdownItems"></div>
           </div>
@@ -816,6 +855,15 @@
           <div class="mcp-hint">Sets the base palette. Accent and gradient stack on top of whichever you pick.</div>
           <div class="theme-grid" id="themeGrid"></div>
         </div>
+        <div class="modal-section" id="customThemeSection">
+          <div class="modal-section-title">Custom palette</div>
+          <div class="mcp-hint">Edits apply live to the “Custom” theme card above. Light or dark mode is inferred from the background you pick.</div>
+          <div class="ct-grid" id="customThemeGrid"></div>
+          <div class="row" style="margin-top:10px;">
+            <button class="pill-outline" id="customFromTheme">Copy current theme</button>
+            <button class="reset-link" id="customThemeReset" style="align-self:center;">Reset</button>
+          </div>
+        </div>
         <div class="modal-section">
           <div class="modal-section-title">Background gradient</div>
           <div class="mcp-hint">Built from your accent, so it follows any theme or custom color.</div>
@@ -903,6 +951,24 @@
           </div>
         </div>
         <div class="modal-section">
+          <div class="modal-section-title">Layout</div>
+          <div class="slider-row">
+            <span style="font-size:12px;color:var(--muted);min-width:84px;">Message width</span>
+            <input type="range" id="msgWidth" min="560" max="1200" step="20" />
+            <span class="val" id="msgWidthVal">760</span>
+          </div>
+          <div class="slider-row" style="margin-top:8px;">
+            <span style="font-size:12px;color:var(--muted);min-width:84px;">Corners</span>
+            <input type="range" id="radiusScale" min="0" max="150" step="10" />
+            <span class="val" id="radiusScaleVal">100%</span>
+          </div>
+          <div class="slider-row" style="margin-top:8px;">
+            <span style="font-size:12px;color:var(--muted);min-width:84px;">Sidebar width</span>
+            <input type="range" id="sidebarWidth" min="200" max="380" step="10" />
+            <span class="val" id="sidebarWidthVal">260</span>
+          </div>
+        </div>
+        <div class="modal-section">
           <div class="toggle-row">
             <span>Compact message spacing</span>
             <div class="toggle-switch" id="compactToggle"><div class="knob"></div></div>
@@ -913,6 +979,26 @@
             <span>Show message info (word count, time)</span>
             <div class="toggle-switch" id="metaToggle"><div class="knob"></div></div>
           </div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Conversations</div>
+          <div class="toggle-row">
+            <span>Show times and date groups in the sidebar</span>
+            <div class="toggle-switch" id="convoTimesToggle"><div class="knob"></div></div>
+          </div>
+          <div class="toggle-row">
+            <span>Name new conversations automatically</span>
+            <div class="toggle-switch" id="autoTitleToggle"><div class="knob"></div></div>
+          </div>
+          <div class="mcp-hint" style="margin:0;">Auto-naming asks your current model for a short title after the first reply. Renaming a chat yourself turns it off for that chat.</div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Composer</div>
+          <div class="toggle-row">
+            <span>Enter sends the message</span>
+            <div class="toggle-switch" id="enterSendsToggle"><div class="knob"></div></div>
+          </div>
+          <div class="mcp-hint" style="margin:0;">When off, Enter makes a new line and Ctrl+Enter sends.</div>
         </div>
       </div>
 
@@ -1019,8 +1105,41 @@ const THEMES = [
   { id:'forest',   name:'Forest',   bg:'#0a0e09', panel:'#11170f', panelAlt:'#161f14', panelAlt2:'#1c2819', text:'#eef4ea', muted:'#9cae95', border:'rgba(255,255,255,.11)', user:'#86d98f', scheme:'dark', accent:'#5ecbb0' },
   { id:'plum',     name:'Plum',     bg:'#0e0a10', panel:'#160f19', panelAlt:'#1d1521', panelAlt2:'#251a29', text:'#f5eef7', muted:'#af9cb8', border:'rgba(255,255,255,.12)', user:'#7fdcc0', scheme:'dark', accent:'#c19aff' },
   { id:'paper',    name:'Paper',    bg:'#e9e4d8', panel:'#f7f4ec', panelAlt:'#ddd6c4', panelAlt2:'#d1c9b3', text:'#22201b', muted:'#6f6a5f', border:'rgba(0,0,0,.12)', user:'#2f8f74', scheme:'light', accent:'#3d5ea8' },
-  { id:'blush',    name:'Blush',    bg:'#f2ddd9', panel:'#fbf1ef', panelAlt:'#eccbc6', panelAlt2:'#e3bab4', text:'#241a19', muted:'#8a6d6a', border:'rgba(0,0,0,.11)', user:'#3f8f7c', scheme:'light', accent:'#c04e6e' }
+  { id:'blush',    name:'Blush',    bg:'#f2ddd9', panel:'#fbf1ef', panelAlt:'#eccbc6', panelAlt2:'#e3bab4', text:'#241a19', muted:'#8a6d6a', border:'rgba(0,0,0,.11)', user:'#3f8f7c', scheme:'light', accent:'#c04e6e' },
+  { id:'obsidian', name:'Obsidian', bg:'#000000', panel:'#0b0b0c', panelAlt:'#141416', panelAlt2:'#1c1c1f', text:'#f4f4f5', muted:'#8f8f96', border:'rgba(255,255,255,.10)', user:'#4ade80', scheme:'dark', accent:'#e5e5e5' },
+  { id:'nord',     name:'Nord',     bg:'#2e3440', panel:'#333b4c', panelAlt:'#3b4252', panelAlt2:'#434c5e', text:'#eceff4', muted:'#9aa5b8', border:'rgba(255,255,255,.11)', user:'#a3be8c', scheme:'dark', accent:'#88c0d0' },
+  { id:'dracula',  name:'Dracula',  bg:'#1e1f29', panel:'#282a36', panelAlt:'#31333f', panelAlt2:'#3c3f51', text:'#f8f8f2', muted:'#9aa0b5', border:'rgba(255,255,255,.12)', user:'#50fa7b', scheme:'dark', accent:'#bd93f9' },
+  { id:'gruvbox',  name:'Gruvbox',  bg:'#1d2021', panel:'#282828', panelAlt:'#32302f', panelAlt2:'#3c3836', text:'#fbf1c7', muted:'#a89984', border:'rgba(255,255,255,.11)', user:'#b8bb26', scheme:'dark', accent:'#fabd2f' },
+  { id:'ember',    name:'Ember',    bg:'#120c08', panel:'#1b1310', panelAlt:'#241a15', panelAlt2:'#2f221b', text:'#fbeee6', muted:'#b09a8c', border:'rgba(255,255,255,.11)', user:'#f0a06a', scheme:'dark', accent:'#ff7a45' },
+  { id:'ocean',    name:'Ocean',    bg:'#06131c', panel:'#0b1e2c', panelAlt:'#102838', panelAlt2:'#153346', text:'#e7f3fa', muted:'#8aa7bb', border:'rgba(255,255,255,.11)', user:'#4fd1c5', scheme:'dark', accent:'#38bdf8' },
+  { id:'rose',     name:'Rosé',     bg:'#191724', panel:'#1f1d2e', panelAlt:'#26233a', panelAlt2:'#2f2b47', text:'#e0def4', muted:'#a3a0bb', border:'rgba(255,255,255,.11)', user:'#9ccfd8', scheme:'dark', accent:'#ebbcba' },
+  { id:'mono',     name:'Mono',     bg:'#101010', panel:'#181818', panelAlt:'#202020', panelAlt2:'#282828', text:'#ededed', muted:'#8a8a8a', border:'rgba(255,255,255,.12)', user:'#bdbdbd', scheme:'dark', accent:'#7d7d7d' },
+  { id:'latte',    name:'Latte',    bg:'#eff1f5', panel:'#ffffff', panelAlt:'#e6e9ef', panelAlt2:'#dce0e8', text:'#4c4f69', muted:'#6c6f85', border:'rgba(0,0,0,.11)', user:'#179299', scheme:'light', accent:'#1e66f5' },
+  { id:'sage',     name:'Sage',     bg:'#e6ebe4', panel:'#f4f7f2', panelAlt:'#d8e0d4', panelAlt2:'#c8d3c3', text:'#1f2a1d', muted:'#5f6d5b', border:'rgba(0,0,0,.11)', user:'#2f7d52', scheme:'light', accent:'#4a7c59' },
+  { id:'sand',     name:'Sand',     bg:'#f4ecdf', panel:'#fdf8f0', panelAlt:'#e8dcc8', panelAlt2:'#dbcbb0', text:'#2b2418', muted:'#77694f', border:'rgba(0,0,0,.11)', user:'#0f766e', scheme:'light', accent:'#b45309' },
 ];
+/* the user-authored palette. settings.customTheme overrides these fields. */
+const CUSTOM_THEME_BASE = { id:'custom', name:'Custom', bg:'#0b0a09', panel:'#131211', panelAlt:'#1a1917', panelAlt2:'#211f1c', text:'#f8f8f4', muted:'#a8a29e', border:'rgba(255,255,255,.13)', user:'#5ecbb0', scheme:'dark', accent:'#93b0ff' };
+/* fields the theme builder exposes, in the order they are rendered */
+const CUSTOM_FIELDS = [
+  { key:'bg',        label:'Background' },
+  { key:'panel',     label:'Panel' },
+  { key:'panelAlt',  label:'Panel (raised)' },
+  { key:'panelAlt2', label:'Panel (highest)' },
+  { key:'text',      label:'Text' },
+  { key:'muted',     label:'Muted text' },
+  { key:'accent',    label:'Accent' },
+  { key:'user',      label:'Secondary' }
+];
+THEMES.push(CUSTOM_THEME_BASE);
+/* the live custom theme = base overridden by whatever the user picked */
+function syncCustomTheme(){
+  const t = THEMES.find(x => x.id === 'custom');
+  Object.assign(t, CUSTOM_THEME_BASE, settings.customTheme || {});
+  t.scheme = luminance(t.bg) > 0.5 ? 'light' : 'dark';
+  t.border = t.scheme === 'light' ? 'rgba(0,0,0,.12)' : 'rgba(255,255,255,.13)';
+}
+
 const GRADIENTS = [
   { id:'none',    name:'None' },
   { id:'radial-top',  name:'Glow (top)',    css:(a,bg)=>`radial-gradient(1100px 620px at 50% -8%, ${hexA(a,0.30)}, transparent 60%)` },
@@ -1150,7 +1269,14 @@ function saveSettings(){
   applyAppearance(); applyLayout();
 }
 function loadConversations(){
-  try{ return JSON.parse(localStorage.getItem('sr_conversations')) || []; }catch(e){ return []; }
+  let list;
+  try{ list = JSON.parse(localStorage.getItem('sr_conversations')) || []; }catch(e){ return []; }
+  // conversations saved before timestamps existed: recover the time from the id
+  for(const c of list){
+    if(!c.createdAt) c.createdAt = parseInt(String(c.id).replace(/^c/,''), 10) || Date.now();
+    if(!c.updatedAt) c.updatedAt = c.createdAt;
+  }
+  return list;
 }
 function saveConversations(){ localStorage.setItem('sr_conversations', JSON.stringify(conversations)); }
 
@@ -1167,6 +1293,7 @@ function animEnabled(){
 }
 
 function applyAppearance(){
+  syncCustomTheme();
   const theme = currentTheme();
   const root = document.documentElement.style;
   const accent = currentAccent();
@@ -1219,6 +1346,10 @@ function applyAppearance(){
   root.setProperty('--font-display', disp.stack);
   ensureWebFonts([ui, mono, disp]);
 
+  root.setProperty('--msg-width', (settings.msgWidth ?? 760) + 'px');
+  root.setProperty('--bubble-width', Math.round((settings.msgWidth ?? 760) * 0.74) + 'px');
+  root.setProperty('--radius', (settings.radiusScale ?? 100) / 100);
+  root.setProperty('--sidebar-w', (settings.sidebarWidth ?? 260) + 'px');
   document.body.classList.toggle('compact', !!settings.compact);
   document.body.classList.toggle('sidebar-collapsed', !!settings.sidebarCollapsed);
 
@@ -1247,7 +1378,8 @@ function applyLayout(){
 function activeConvo(){ return conversations.find(c => c.id === activeId); }
 
 function newConversation(){
-  const convo = { id: 'c' + Date.now(), title: 'new chat', model: settings.defaultModel || '', effort: settings.defaultEffort || 'off', messages: [] };
+  const now = Date.now();
+  const convo = { id: 'c' + now, title: 'new chat', createdAt: now, updatedAt: now, model: settings.defaultModel || '', effort: settings.defaultEffort || 'off', messages: [] };
   conversations.unshift(convo);
   activeId = convo.id;
   localStorage.setItem('sr_active', activeId);
@@ -1258,10 +1390,26 @@ function newConversation(){
 
 function renderConvoList(){
   $('convoList').innerHTML = '';
-  for(const c of conversations){
+  const showTimes = settings.showConvoTimes !== false;
+  const sorted = conversations.slice().sort((a,b) => (b.updatedAt||0) - (a.updatedAt||0));
+  let bucket = null;
+  for(const c of sorted){
+    if(showTimes){
+      const b = dayBucket(c.updatedAt);
+      if(b !== bucket){
+        bucket = b;
+        const h = document.createElement('div');
+        h.className = 'convo-group';
+        h.textContent = b;
+        $('convoList').appendChild(h);
+      }
+    }
     const div = document.createElement('div');
     div.className = 'convo' + (c.id === activeId ? ' active' : '');
-    div.innerHTML = `<span class="title-text">${escapeHtml(c.title)}</span><span class="del">✕</span>`;
+    div.title = c.title + (c.updatedAt ? ' — ' + new Date(c.updatedAt).toLocaleString() : '');
+    div.innerHTML = `<span class="title-text">${escapeHtml(c.title)}</span>` +
+      (showTimes ? `<span class="convo-time">${escapeHtml(relTime(c.updatedAt))}</span>` : '') +
+      `<span class="del">✕</span>`;
     div.addEventListener('click', (e) => {
       if(e.target.classList.contains('del')){
         conversations = conversations.filter(x => x.id !== c.id);
@@ -1289,6 +1437,7 @@ function renderConvoList(){
       input.select();
       const commit = () => {
         c.title = input.value.trim() || c.title;
+        c.titleLocked = true;   // never auto-retitle a conversation the user named
         saveConversations();
         renderConvoList();
       };
@@ -1375,6 +1524,28 @@ function avatarHtml(who){
 
 function timeStr(ts){
   return new Date(ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+/* "3m", "4h", "Tue", "12 Mar" — short enough for the sidebar */
+function relTime(ts){
+  if(!ts) return '';
+  const diff = Date.now() - ts, d = new Date(ts);
+  if(diff < 60e3) return 'now';
+  if(diff < 3600e3) return Math.floor(diff/60e3) + 'm';
+  if(diff < 86400e3) return Math.floor(diff/3600e3) + 'h';
+  if(diff < 7*86400e3) return d.toLocaleDateString([], { weekday:'short' });
+  if(d.getFullYear() === new Date().getFullYear()) return d.toLocaleDateString([], { day:'numeric', month:'short' });
+  return d.toLocaleDateString([], { day:'numeric', month:'short', year:'2-digit' });
+}
+/* which sidebar bucket a conversation falls into */
+function dayBucket(ts){
+  if(!ts) return 'Older';
+  const start = new Date(); start.setHours(0,0,0,0);
+  const dayStart = start.getTime();
+  if(ts >= dayStart) return 'Today';
+  if(ts >= dayStart - 86400e3) return 'Yesterday';
+  if(ts >= dayStart - 7*86400e3) return 'Previous 7 days';
+  if(ts >= dayStart - 30*86400e3) return 'Previous 30 days';
+  return 'Older';
 }
 function wordCount(text){
   return (text || '').trim().split(/\s+/).filter(Boolean).length;
@@ -1689,6 +1860,7 @@ async function send(){
   let convo = activeConvo();
   if(!convo){ newConversation(); convo = activeConvo(); }
   if(convo.title === 'new chat' && text) convo.title = text.slice(0, 40);
+  convo.updatedAt = Date.now();
 
   if(isStreaming){
     queuedMessage = { text, attachments: pendingAttachments.slice() };
@@ -1915,7 +2087,9 @@ async function actuallySend(convo, text, attachments){
       msgBody.appendChild(footer);
     }
     convo.messages.push({ role: 'assistant', content: full, apiContent: full, meta: assistantMeta, steps });
+    convo.updatedAt = Date.now();
     saveConversations();
+    maybeAutoTitle(convo);
     isStreaming = false;
     currentAbortController = null;
     setSendButtonMode(false);
@@ -1925,6 +2099,39 @@ async function actuallySend(convo, text, attachments){
       await actuallySend(convo, q.text, q.attachments);
     }
   }
+}
+
+/* Ask the model for a short title after the first exchange. Best-effort: any
+   failure just leaves the first-message fallback title in place. */
+async function maybeAutoTitle(convo){
+  if(settings.autoTitle === false) return;
+  if(convo.titleLocked || convo.titleGenerated) return;
+  const firstUser = convo.messages.find(m => m.role === 'user');
+  const firstReply = convo.messages.find(m => m.role === 'assistant');
+  if(!firstUser || !firstReply) return;
+  const model = currentModel();
+  if(!model) return;
+  convo.titleGenerated = true;   // set up front so a retry storm can't happen
+  try{
+    const r = await fetch('/api/chat', {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        model, stream:false, mcp:false, max_tokens:24,
+        messages:[
+          { role:'system', content:'Reply with a short title of at most 6 words for the conversation below. Plain text only — no quotes, no punctuation at the end, no explanation.' },
+          { role:'user', content: String(firstUser.displayText || firstUser.content || '').slice(0,500) + '\n\n---\n\n' + String(firstReply.content || '').slice(0,500) }
+        ]
+      })
+    });
+    if(!r.ok) return;
+    const j = await r.json();
+    let t = (j.choices?.[0]?.message?.content || '').trim().replace(/^["'`]|["'`.]+$/g,'').trim();
+    if(!t || t.length > 70) return;
+    if(convo.titleLocked) return;         // user renamed it while we were waiting
+    convo.title = t;
+    saveConversations();
+    renderConvoList();
+  }catch(e){ /* keep the fallback title */ }
 }
 
 /* ---------- MCP ---------- */
@@ -2200,6 +2407,9 @@ function openSettings(){
   renderGradGrid();
   renderFontSizeRow();
   renderColorSpread();
+  renderCustomTheme();
+  renderLayoutSliders();
+  renderConvoToggles();
   renderFontControls();
   renderMotionControls();
   renderSidebarToggleSetting();
@@ -2263,6 +2473,7 @@ function renderThemeGrid(){
   THEMES.forEach(t => {
     const card = document.createElement('div');
     card.className = 'theme-card' + ((settings.theme||'midnight')===t.id ? ' active':'');
+    card.setAttribute('data-tip', t.id === 'custom' ? 'Your own palette — edit it below' : t.name + ' · ' + t.scheme);
     card.innerHTML = `<div class="swatches"><div class="sw" style="background:${t.bg}"></div><div class="sw" style="background:${t.panel}"></div><div class="sw" style="background:${t.panelAlt2}"></div></div><div class="name">${t.name}</div>`;
     card.addEventListener('click', () => {
       settings.theme = t.id; settings.accent = t.accent;
@@ -2442,6 +2653,99 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+/* ---------- custom palette builder ---------- */
+function renderCustomTheme(){
+  const grid = $('customThemeGrid'); grid.innerHTML = '';
+  const cur = Object.assign({}, CUSTOM_THEME_BASE, settings.customTheme || {});
+  CUSTOM_FIELDS.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'ct-field';
+    row.innerHTML = `<input type="color" value="${cur[f.key]}" data-tip="${f.label}" /><label>${f.label}</label>`;
+    row.querySelector('input').addEventListener('input', (e) => {
+      settings.customTheme = Object.assign({}, settings.customTheme, { [f.key]: e.target.value });
+      settings.theme = 'custom';
+      if(f.key === 'accent') delete settings.accent;   // let the palette drive it
+      applyAppearance(); renderThemeGrid(); renderAccentPicker(); renderColorSpread();
+    });
+    grid.appendChild(row);
+  });
+}
+$('customFromTheme').addEventListener('click', () => {
+  const t = currentTheme();
+  const copy = {};
+  for(const f of CUSTOM_FIELDS) copy[f.key] = t[f.key];
+  copy.accent = currentAccent();
+  copy.text = t.text;
+  settings.customTheme = copy;
+  settings.theme = 'custom';
+  delete settings.accent;
+  applyAppearance(); renderCustomTheme(); renderThemeGrid(); renderAccentPicker(); renderColorSpread();
+});
+$('customThemeReset').addEventListener('click', () => {
+  delete settings.customTheme;
+  applyAppearance(); renderCustomTheme(); renderThemeGrid(); renderColorSpread();
+});
+
+/* ---------- layout sliders ---------- */
+function renderLayoutSliders(){
+  $('msgWidth').value = settings.msgWidth ?? 760;
+  $('msgWidthVal').textContent = $('msgWidth').value;
+  $('radiusScale').value = settings.radiusScale ?? 100;
+  $('radiusScaleVal').textContent = $('radiusScale').value + '%';
+  $('sidebarWidth').value = settings.sidebarWidth ?? 260;
+  $('sidebarWidthVal').textContent = $('sidebarWidth').value;
+}
+$('msgWidth').addEventListener('input', () => {
+  settings.msgWidth = parseInt($('msgWidth').value, 10);
+  $('msgWidthVal').textContent = settings.msgWidth;
+  applyAppearance();
+});
+$('radiusScale').addEventListener('input', () => {
+  settings.radiusScale = parseInt($('radiusScale').value, 10);
+  $('radiusScaleVal').textContent = settings.radiusScale + '%';
+  applyAppearance();
+});
+$('sidebarWidth').addEventListener('input', () => {
+  settings.sidebarWidth = parseInt($('sidebarWidth').value, 10);
+  $('sidebarWidthVal').textContent = settings.sidebarWidth;
+  applyAppearance();
+});
+
+/* ---------- conversation + composer toggles ---------- */
+function renderConvoToggles(){
+  $('convoTimesToggle').classList.toggle('on', settings.showConvoTimes !== false);
+  $('autoTitleToggle').classList.toggle('on', settings.autoTitle !== false);
+  $('enterSendsToggle').classList.toggle('on', settings.enterSends !== false);
+}
+$('convoTimesToggle').addEventListener('click', () => {
+  settings.showConvoTimes = settings.showConvoTimes === false;
+  renderConvoToggles(); renderConvoList();
+});
+$('autoTitleToggle').addEventListener('click', () => {
+  settings.autoTitle = settings.autoTitle === false;
+  renderConvoToggles();
+});
+$('enterSendsToggle').addEventListener('click', () => {
+  settings.enterSends = settings.enterSends === false;
+  renderConvoToggles();
+  inputEl.placeholder = settings.enterSends !== false
+    ? 'Type your question here…'
+    : 'Type your question here… (Ctrl+Enter to send)';
+});
+
+/* Tooltips flip toward whichever side has room, so edge elements stay readable. */
+document.addEventListener('mouseover', (e) => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if(!el) return;
+  const r = el.getBoundingClientRect();
+  const w = Math.max(90, el.getAttribute('data-tip').length * 6.2);
+  let pos = '';
+  if(r.left + r.width/2 - w/2 < 8) pos = 'right';
+  else if(r.left + r.width/2 + w/2 > window.innerWidth - 8) pos = 'left';
+  if(r.top < 40) pos = pos ? pos : 'below';
+  if(pos) el.setAttribute('data-tip-pos', pos); else el.removeAttribute('data-tip-pos');
+});
+
 function renderMetaToggle(){
   $('metaToggle').classList.toggle('on', pendingShowMeta);
 }
@@ -2481,7 +2785,9 @@ $('settingsSave').addEventListener('click', () => {
 /* ---------- wiring ---------- */
 $('newChatBtn').addEventListener('click', () => { newConversation(); updateModelDropdown(); updateEffortDropdown(); });
 inputEl.addEventListener('keydown', (e) => {
-  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+  if(e.key !== 'Enter') return;
+  const enterSends = settings.enterSends !== false;
+  if(enterSends ? !e.shiftKey : (e.ctrlKey || e.metaKey)){ e.preventDefault(); send(); }
 });
 inputEl.addEventListener('input', () => {
   inputEl.style.height = 'auto';
@@ -2492,6 +2798,7 @@ inputEl.addEventListener('input', () => {
 if(settings.sidebarCollapsed === undefined && window.innerWidth <= 720) settings.sidebarCollapsed = true;
 applyAppearance();
 applyLayout();
+if(settings.enterSends === false) inputEl.placeholder = 'Type your question here… (Ctrl+Enter to send)';
 if(conversations.length === 0) newConversation();
 else { renderConvoList(); renderMessages(); }
 fetchModels();
