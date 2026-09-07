@@ -581,7 +581,9 @@
   .ct-field label{ font-size:11.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   /* ---------- tooltips ---------- */
-  [data-tip]{ position:relative; }
+  /* only give static elements a positioning context — never steal it from one
+     that is already absolutely placed (the send button, the sidebar opener) */
+  [data-tip]:where(:not(.composer-send):not(.sidebar-open)){ position:relative; }
   [data-tip]:hover::after{
     content:attr(data-tip); position:absolute; bottom:calc(100% + 8px); left:50%;
     transform:translateX(-50%);
