@@ -23,14 +23,73 @@ function saveConfig(cfg) {
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
 
+const MAX_ERROR_TEXT = 1000;
+
+function boundedText(value, fallback) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return (text || fallback || 'The request failed.').slice(0, MAX_ERROR_TEXT);
+}
+
+function requestIdFrom(headers, body, nested) {
+  return nested?.request_id || nested?.requestId || body?.request_id || body?.requestId
+    || headers?.['x-request-id'] || headers?.['request-id'];
+}
+
+function normalizeError(value, status, headers, fallback) {
+  const body = value && typeof value === 'object' ? value : null;
+  const nested = body?.error && typeof body.error === 'object' ? body.error : null;
+  const message = nested?.message || body?.message || (typeof body?.error === 'string' ? body.error : null)
+    || (typeof value === 'string' ? value : null);
+  const error = {
+    message: boundedText(message, fallback),
+    type: boundedText(String(nested?.type || body?.type || 'request_error')),
+    status: Number(status) || 500
+  };
+  const code = nested?.code ?? body?.code;
+  const param = nested?.param ?? body?.param;
+  const requestId = requestIdFrom(headers, body, nested);
+  if (code !== undefined && code !== null) error.code = boundedText(String(code));
+  if (param !== undefined && param !== null) error.param = boundedText(String(param));
+  if (requestId) error.request_id = boundedText(String(requestId));
+  return { error };
+}
+
+function parseErrorBody(raw) {
+  try { return JSON.parse(raw); }
+  catch (e) { return raw; }
+}
+
+function routerError(value, status, headers, fallback) {
+  const envelope = normalizeError(value, status, headers, fallback);
+  const err = new Error(envelope.error.message);
+  err.routerError = envelope.error;
+  return err;
+}
+
+function errorEnvelope(err, fallbackStatus, fallback) {
+  if (err?.routerError) return { error: err.routerError };
+  return normalizeError(err?.message, fallbackStatus, null, fallback);
+}
+
+function writeSseError(res, err, fallbackStatus) {
+  res.write('data: ' + JSON.stringify({ type: 'error', ...errorEnvelope(err, fallbackStatus) }) + '\n\n');
+}
+
 // One-shot JSON request to the router (used for models + the tool-calling loop)
 function routerRequest(targetPath, method, bodyObj) {
-  const cfg = loadConfig();
-  const base = new URL(cfg.base_url.replace(/\/$/, '') + targetPath);
-  const payload = bodyObj ? Buffer.from(JSON.stringify(bodyObj)) : null;
   return new Promise((resolve, reject) => {
+    let cfg, base, payload;
+    try {
+      cfg = loadConfig();
+      base = new URL(cfg.base_url.replace(/\/$/, '') + targetPath);
+      payload = bodyObj ? Buffer.from(JSON.stringify(bodyObj)) : null;
+    } catch (err) {
+      reject(err);
+      return;
+    }
     const req = https.request({
       hostname: base.hostname,
+      port: base.port || undefined,
       path: base.pathname + base.search,
       method,
       headers: {
@@ -40,11 +99,18 @@ function routerRequest(targetPath, method, bodyObj) {
       }
     }, (upstream) => {
       let data = '';
-      upstream.on('data', (c) => (data += c));
-      upstream.on('end', () => {
-        try { resolve({ status: upstream.statusCode, json: JSON.parse(data) }); }
-        catch (e) { resolve({ status: upstream.statusCode, json: null, raw: data }); }
+      const status = upstream.statusCode || 502;
+      upstream.setEncoding('utf8');
+      upstream.on('data', (chunk) => {
+        if (status >= 200 && status < 300) data += chunk;
+        else if (data.length < MAX_ERROR_TEXT * 2) data += chunk;
       });
+      upstream.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(data); } catch (e) {}
+        resolve({ status, headers: upstream.headers, json, raw: data });
+      });
+      upstream.on('error', reject);
     });
     req.on('error', reject);
     if (payload) req.write(payload);
@@ -54,11 +120,19 @@ function routerRequest(targetPath, method, bodyObj) {
 
 // Streamed passthrough (used when no MCP tools are active — the fast path)
 function proxyToRouterStream(targetPath, method, body, res) {
-  const cfg = loadConfig();
-  const base = new URL(cfg.base_url.replace(/\/$/, '') + targetPath);
-  const payload = body ? Buffer.from(body) : null;
+  let cfg, base, payload;
+  try {
+    cfg = loadConfig();
+    base = new URL(cfg.base_url.replace(/\/$/, '') + targetPath);
+    payload = body ? Buffer.from(body) : null;
+  } catch (err) {
+    sendJson(res, 500, errorEnvelope(err, 500, 'The router configuration could not be loaded.'));
+    return;
+  }
+  let settled = false;
   const req = https.request({
     hostname: base.hostname,
+    port: base.port || undefined,
     path: base.pathname + base.search,
     method,
     headers: {
@@ -67,16 +141,56 @@ function proxyToRouterStream(targetPath, method, body, res) {
       ...(payload ? { 'Content-Length': payload.length } : {})
     }
   }, (upstream) => {
-    res.writeHead(upstream.statusCode, {
-      'Content-Type': 'text/event-stream',
+    const status = upstream.statusCode || 502;
+    if (status < 200 || status >= 300) {
+      let raw = '';
+      upstream.setEncoding('utf8');
+      upstream.on('data', (chunk) => {
+        if (raw.length < MAX_ERROR_TEXT * 2) raw += chunk;
+      });
+      upstream.on('end', () => {
+        settled = true;
+        sendJson(res, status, normalizeError(parseErrorBody(raw), status, upstream.headers, 'The router rejected the request.'));
+      });
+      upstream.on('error', (err) => {
+        settled = true;
+        sendJson(res, 502, errorEnvelope(err, 502, 'The router response could not be read.'));
+      });
+      return;
+    }
+
+    res.writeHead(status, {
+      'Content-Type': upstream.headers['content-type'] || 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive'
     });
-    upstream.pipe(res);
+    upstream.on('data', (chunk) => res.write(chunk));
+    upstream.on('end', () => {
+      settled = true;
+      res.end();
+    });
+    upstream.on('aborted', () => {
+      if (settled || res.writableEnded) return;
+      settled = true;
+      writeSseError(res, new Error('The router closed the stream unexpectedly.'), 502);
+      res.end();
+    });
+    upstream.on('error', (err) => {
+      if (settled || res.writableEnded) return;
+      settled = true;
+      writeSseError(res, err, 502);
+      res.end();
+    });
   });
   req.on('error', (err) => {
-    if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'proxy_failed', message: err.message }));
+    if (settled || res.writableEnded) return;
+    settled = true;
+    if (res.headersSent) {
+      writeSseError(res, err, 502);
+      res.end();
+    } else {
+      sendJson(res, 502, errorEnvelope(err, 502, 'Could not connect to the router.'));
+    }
   });
   if (payload) req.write(payload);
   req.end();
@@ -123,14 +237,19 @@ async function runToolLoop(model, messages, onEvent, reasoningEffort, requireApp
   const tools = mcpToolsForRequest();
   let msgs = messages.slice();
   for (let i = 0; i < 8; i++) {
-    const { json } = await routerRequest('/chat/completions', 'POST', {
+    const { status, headers, json, raw } = await routerRequest('/chat/completions', 'POST', {
       model,
       messages: msgs,
       tools: tools.length ? tools : undefined,
       ...(reasoningEffort && reasoningEffort !== 'off' ? { reasoning_effort: reasoningEffort } : {})
     });
+    if (status < 200 || status >= 300) {
+      throw routerError(json || raw, status, headers, 'The router rejected the request.');
+    }
     const choice = json?.choices?.[0];
-    if (!choice) throw new Error('bad response from router: ' + JSON.stringify(json).slice(0, 300));
+    if (!choice?.message) {
+      throw routerError('The router returned an invalid completion response.', 502, headers);
+    }
     const message = choice.message;
     const calls = message.tool_calls || [];
     if (calls.length === 0) return message.content || '';
@@ -349,7 +468,7 @@ const server = http.createServer((req, res) => {
         const finalText = await runToolLoop(parsed.model, parsed.messages, writeEvent, parsed.reasoning_effort, parsed.requireApproval);
         writeEvent({ choices: [{ delta: { content: finalText } }] });
       } catch (err) {
-        writeEvent({ choices: [{ delta: { content: '[error: ' + err.message + ']' } }] });
+        writeSseError(res, err, 502);
       }
       res.write('data: [DONE]\n\n');
       res.end();

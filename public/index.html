@@ -258,6 +258,21 @@
   }
   .msg-copy-btn:hover{ color:var(--text); }
 
+  .error-card{
+    width:min(100%, 620px); border:1px solid var(--err); border-radius:calc(10px * var(--radius));
+    background:var(--panel-alt); padding:14px 16px; box-shadow:inset 3px 0 0 var(--err);
+  }
+  .error-card-title{ display:flex; align-items:center; gap:8px; color:var(--err); font-weight:700; font-family:var(--font-display); }
+  .error-card-message{ margin-top:7px; color:var(--text); line-height:1.45; }
+  .error-card details{ margin-top:10px; color:var(--muted); font-size:12px; }
+  .error-card summary{ cursor:pointer; }
+  .error-detail{ margin-top:6px; font-family:var(--font-mono); white-space:pre-wrap; word-break:break-word; }
+  .error-actions{ display:flex; gap:8px; margin-top:12px; }
+  .error-actions button:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  .error-actions .error-edit{ background:transparent; }
+  #messages.bubbles .msg.error-ui .msg-body{ align-items:flex-start; }
+  #messages.bubbles .msg.error-ui .error-card{ max-width:var(--bubble-width); }
+
   /* thinking dots */
   .thinking-dots{ display:inline-flex; gap:4px; padding:6px 0; }
   .thinking-dots span{
@@ -1478,6 +1493,7 @@ let pendingAttachments = [];
 let isStreaming = false;
 let messageQueue = [];      // messages waiting for the current reply to finish
 let promptAdditions = [];     // /btw notes, folded into the next turn
+let queuePaused = false;      // a failed turn parks queued work until recovery succeeds
 let modelsList = [];
 let currentAbortController = null;
 
@@ -1688,7 +1704,45 @@ function startRename(row, c){
 }
 
 function escapeHtml(s){
-  return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function normalizeChatError(value, status){
+  let body = value;
+  if(typeof body === 'string'){
+    try{ body = JSON.parse(body); }catch(e){ body = { message: body }; }
+  }
+  const nested = body?.error && typeof body.error === 'object' ? body.error : null;
+  const message = nested?.message || body?.message || (typeof body?.error === 'string' ? body.error : '') || 'The request failed.';
+  const error = {
+    message: String(message).trim().slice(0, 1000) || 'The request failed.',
+    status: Number(nested?.status || body?.status || status) || 0,
+    type: String(nested?.type || body?.type || 'request_error').slice(0, 120)
+  };
+  const code = nested?.code ?? body?.code;
+  const param = nested?.param ?? body?.param;
+  const requestId = nested?.request_id || body?.request_id;
+  if(code != null) error.code = String(code).slice(0, 160);
+  if(param != null) error.param = String(param).slice(0, 160);
+  if(requestId) error.request_id = String(requestId).slice(0, 160);
+  return error;
+}
+function chatErrorCopy(error){
+  if(error.status === 401 || error.status === 403) return 'Authentication failed. Check the API key in Settings, then retry.';
+  if(error.status === 429) return 'The router is rate limiting requests. Wait a moment, then retry.';
+  if(error.type === 'network_error') return 'Could not reach the router. Check your connection and API settings.';
+  if(error.type === 'invalid_response') return 'The router returned a response the app could not read.';
+  if(error.status >= 500) return 'The router is temporarily unavailable. Please retry.';
+  return error.message;
+}
+function chatErrorFromException(err){
+  if(err?.chatError) return err.chatError;
+  return normalizeChatError({ message: err?.message || 'Could not reach the router.', type: err instanceof TypeError ? 'network_error' : 'request_error' });
+}
+function throwChatError(value, status){
+  const err = new Error('chat request failed');
+  err.chatError = normalizeChatError(value, status);
+  throw err;
 }
 
 /* ---------- lightweight markdown + syntax highlighting ---------- */
@@ -2015,6 +2069,7 @@ function renderMessages(){
   let mi = -1;
   for(const m of convo.messages){
     mi++;
+    if(m.role === 'error_ui') { appendErrorDom(m); continue; }
     if(m.role === 'system_ui') { appendMsgDom('system', m.content).dataset.mi = mi; continue; }
     if(m.role === 'system') continue;
     const wrap = appendMsgDom(m.role, m.displayText ?? m.content, m.attachments, m.meta, m);
@@ -2106,6 +2161,61 @@ function appendMsgDom(role, text, attachments, meta, msgObj){
     });
   }
   return wrap;
+}
+
+function appendErrorDom(message){
+  const error = normalizeChatError(message.error || message);
+  const details = [];
+  if(error.status) details.push('HTTP ' + error.status);
+  if(error.type) details.push('Type: ' + error.type);
+  if(error.code) details.push('Code: ' + error.code);
+  if(error.param) details.push('Parameter: ' + error.param);
+  if(error.request_id) details.push('Request ID: ' + error.request_id);
+  if(error.message && error.message !== chatErrorCopy(error)) details.push(error.message);
+  const wrap = document.createElement('div');
+  wrap.className = 'msg error-ui';
+  wrap.innerHTML = `<div class="msg-body"><div class="error-card" role="alert" aria-live="assertive">
+    <div class="error-card-title"><span aria-hidden="true">!</span> Reply failed</div>
+    <div class="error-card-message">${escapeHtml(chatErrorCopy(error))}</div>
+    ${details.length ? `<details><summary>Technical details</summary><div class="error-detail">${escapeHtml(details.join('\n'))}</div></details>` : ''}
+    <div class="error-actions"><button class="primary error-retry">Retry</button><button class="error-edit">Edit message</button></div>
+  </div></div>`;
+  wrap.querySelector('.error-retry').addEventListener('click', () => retryTurn(message.turnId));
+  wrap.querySelector('.error-edit').addEventListener('click', () => editTurn(message.turnId));
+  messagesEl.appendChild(wrap);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return wrap;
+}
+
+async function retryTurn(turnId){
+  if(isStreaming) return;
+  const convo = activeConvo();
+  const userMessage = convo?.messages.find(m => m.role === 'user' && m.turnId === turnId);
+  if(!convo || !userMessage) return;
+  convo.messages = convo.messages.filter(m => !(m.turnId === turnId && (m.role === 'error_ui' || (m.role === 'assistant' && m.incomplete))));
+  saveConversations();
+  renderMessages();
+  queuePaused = false;
+  await requestTurn(convo, userMessage);
+}
+
+function editTurn(turnId){
+  if(isStreaming) return;
+  const convo = activeConvo();
+  const userMessage = convo?.messages.find(m => m.role === 'user' && m.turnId === turnId);
+  if(!convo || !userMessage) return;
+  convo.messages = convo.messages.filter(m => m.turnId !== turnId);
+  inputEl.value = userMessage.editText ?? userMessage.content ?? '';
+  pendingAttachments = (userMessage.attachments || []).slice();
+  queuePaused = true;
+  saveConversations();
+  renderMessages();
+  renderPendingAttachments();
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  $('inputCount').textContent = String(wordCount(inputEl.value));
+  inputEl.focus();
+  renderQueueStrip();
 }
 
 function currentModel(){
@@ -2262,8 +2372,7 @@ function buildApiMessages(convo){
   }
   if(sys) msgs.push({ role: 'system', content: sys });
   for(const m of convo.messages){
-    if(m.role === 'system_ui') continue;
-    if(m.role === 'system') continue;
+    if(!['user','assistant'].includes(m.role) || m.incomplete || (m.stopped && !m.apiContent)) continue;
     msgs.push({ role: m.role, content: m.apiContent ?? m.content });
   }
   return msgs;
@@ -2318,7 +2427,7 @@ function renderQueueStrip(){
   el.innerHTML =
     '<div class="queue-head">' +
       '<span class="q-label">' + parts.join(' · ') + ' — ' +
-        (isStreaming ? 'goes out when this reply finishes' : 'sending now') + '</span>' +
+        (isStreaming ? 'goes out when this reply finishes' : queuePaused ? 'waiting for you to retry or edit' : 'sending now') + '</span>' +
       (isStreaming ? '<button class="queue-act" id="qSendNow">Interrupt &amp; send</button>' : '') +
       '<button class="queue-act danger" id="qClear">Clear</button>' +
     '</div>' +
@@ -2388,9 +2497,10 @@ async function send(){
     return;
   }
 
-  await actuallySend(convo, text, pendingAttachments.slice());
+  const attachments = pendingAttachments.slice();
   pendingAttachments = [];
   renderPendingAttachments();
+  await actuallySend(convo, text, attachments);
 }
 
 function setSendButtonMode(streaming){
@@ -2410,53 +2520,58 @@ $('sendBtn').addEventListener('click', () => {
 });
 
 async function actuallySend(convo, text, attachments){
-  let apiContent = text;
   attachments = attachments || [];
+  let editText = text;
+  let apiContent = text;
   let displayText = text;
   const imageParts = attachments.filter(a => a.type === 'image');
   const textParts = attachments.filter(a => a.type === 'text');
   let extra = '';
-  for(const t of textParts) extra += `\n\n[attached: ${t.name}]\n\`\`\`\n${t.text}\n\`\`\``;
-  if(extra) { apiContent = (text || '') + extra; displayText = (text || '') + extra; }
-
+  for(const part of textParts) extra += `\n\n[attached: ${part.name}]\n\`\`\`\n${part.text}\n\`\`\``;
+  if(extra){
+    apiContent = (text || '') + extra;
+    displayText = (text || '') + extra;
+  }
   if(imageParts.length){
     apiContent = [
-      { type: 'text', text: apiContent || '(see attached image)' },
-      ...imageParts.map(p => ({ type: 'image_url', image_url: { url: p.dataUrl } }))
+      { type:'text', text:apiContent || '(see attached image)' },
+      ...imageParts.map(part => ({ type:'image_url', image_url:{ url:part.dataUrl } }))
     ];
   }
-
   if(promptAdditions.length){
-    const notes = promptAdditions.slice(); promptAdditions = [];
-    const suffix = '\n\n' + notes.map(n => 'By the way: ' + n).join('\n');
-    text = (text || '') + suffix;
+    const notes = promptAdditions.slice();
+    promptAdditions = [];
+    const suffix = '\n\n' + notes.map(note => 'By the way: ' + note).join('\n');
+    editText = (editText || '') + suffix;
     displayText = (displayText || '') + suffix;
-    if(typeof apiContent === 'string'){
-      apiContent = (apiContent || '') + suffix;
-    } else if(Array.isArray(apiContent)){
-      // image message: the note belongs on the text part, not appended to the array
-      const t = apiContent.find(p => p.type === 'text');
-      if(t) t.text = (t.text || '') + suffix;
-      else apiContent.unshift({ type:'text', text: suffix.trim() });
+    if(typeof apiContent === 'string') apiContent = (apiContent || '') + suffix;
+    else {
+      const textPart = apiContent.find(part => part.type === 'text');
+      if(textPart) textPart.text = (textPart.text || '') + suffix;
     }
     renderQueueStrip();
   }
+
   const userTs = Date.now();
   const userMeta = `${wordCount(displayText)} words · ${timeStr(userTs)}`;
-  const userMsg = { role: 'user', content: text, displayText, apiContent, attachments, meta: userMeta };
+  const turnId = 'turn_' + userTs + '_' + Math.random().toString(36).slice(2, 8);
+  const userMsg = { role: 'user', turnId, content: editText, editText, displayText, apiContent, attachments, meta: userMeta };
   convo.messages.push(userMsg);
   saveConversations();
   renderConvoList();
   appendMsgDom('user', displayText, attachments, userMeta, userMsg);
-  inputEl.value = '';
-  inputEl.style.height = 'auto';
-  $('inputCount').textContent = '0';
+  clearComposer();
+  queuePaused = false;
+  await requestTurn(convo, userMsg);
+}
 
+async function requestTurn(convo, userMessage){
   isStreaming = true;
   setSendButtonMode(true);
   const model = currentModel();
   const effort = currentEffort();
   const requireApproval = settings.requireApproval !== false;
+  const turnId = userMessage.turnId;
   const assistantWrap = appendMsgDom('assistant', '');
   const msgBody = assistantWrap.querySelector('.msg-body');
   const contentEl = assistantWrap.querySelector('.content');
@@ -2479,6 +2594,9 @@ async function actuallySend(convo, text, attachments){
   let firstToken = true;
   let currentStepDiv = null;
   const steps = [];
+  let outcome = 'success';
+  let failure = null;
+  let sawDone = false;
   currentAbortController = new AbortController();
 
   function addStep(server, tool, args, pendingApprovalId){
@@ -2520,100 +2638,109 @@ async function actuallySend(convo, text, attachments){
     }
     try{
       await fetch('/api/mcp/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, approved })
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body:JSON.stringify({ id, approved })
       });
     }catch(e){}
+  }
+  function processEvent(block){
+    const data = block.split('\n')
+      .filter(line => line.startsWith('data:'))
+      .map(line => line.slice(5).replace(/^ /, ''))
+      .join('\n');
+    if(!data) return;
+    if(data === '[DONE]'){ sawDone = true; return; }
+    let json;
+    try{ json = JSON.parse(data); }
+    catch(e){ throwChatError({ message:'The router sent malformed streaming data.', type:'invalid_response' }); }
+    if(json.type === 'error') throwChatError(json);
+    if(json.type === 'tool_approval_request'){
+      const key = json.server + '.' + json.tool;
+      const autoApprove = (convo.autoApproveTools || []).includes(key) || (settings.autoApproveToolsGlobal || []).includes(key);
+      currentStepDiv = addStep(json.server, json.tool, json.args, autoApprove ? null : json.id);
+      steps.push({ server:json.server, tool:json.tool, args:json.args, result:null });
+      if(autoApprove){
+        fetch('/api/mcp/approve', {
+          method:'POST', headers:{ 'Content-Type':'application/json' },
+          body:JSON.stringify({ id:json.id, approved:true })
+        }).catch(() => {});
+      }
+      return;
+    }
+    if(json.type === 'tool_call'){
+      if(!currentStepDiv || currentStepDiv.querySelector('.step-approve-row')){
+        currentStepDiv = addStep(json.server, json.tool, json.args);
+        steps.push({ server:json.server, tool:json.tool, args:json.args, result:null });
+      }
+      return;
+    }
+    if(json.type === 'tool_result'){
+      if(currentStepDiv){
+        const last = steps[steps.length - 1];
+        last.ms = finishStep(currentStepDiv, last.server, last.tool, last.args, json.result || '', json.denied);
+      }
+      if(steps.length) steps[steps.length - 1].result = json.result || '';
+      currentStepDiv = null;
+      return;
+    }
+    const delta = json.choices?.[0]?.delta?.content || '';
+    if(delta){
+      if(firstToken){
+        firstToken = false;
+        ttft = ((Date.now() - startedAt) / 1000).toFixed(1);
+      }
+      full += delta;
+      contentEl.innerHTML = renderRichContent(full);
+      if(settings.autoScroll !== false) messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
   }
 
   try{
     const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: currentAbortController.signal,
-      body: JSON.stringify({
-        model, messages: buildApiMessages(convo), stream: true,
-        reasoning_effort: effort !== 'off' ? effort : undefined,
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      signal:currentAbortController.signal,
+      body:JSON.stringify({
+        model, messages:buildApiMessages(convo), stream:true,
+        reasoning_effort:effort !== 'off' ? effort : undefined,
         requireApproval
       })
     });
-    if(!res.ok || !res.body){
-      const errText = await res.text().catch(() => '');
-      throw new Error('HTTP ' + res.status + ' — ' + errText.slice(0, 200));
+    if(!res.ok){
+      const raw = await res.text().catch(() => '');
+      throwChatError(raw, res.status);
+    }
+    if(!res.body || !(res.headers.get('content-type') || '').toLowerCase().includes('text/event-stream')){
+      throwChatError({ message:'Expected a streaming response from the router.', type:'invalid_response' }, res.status);
     }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buf = '';
+    let buffer = '';
     while(true){
       const { done, value } = await reader.read();
       if(done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
-      for(const line of lines){
-        const trimmed = line.trim();
-        if(!trimmed.startsWith('data:')) continue;
-        const payload = trimmed.slice(5).trim();
-        if(payload === '[DONE]') continue;
-        try{
-          const json = JSON.parse(payload);
-          if(json.type === 'tool_approval_request'){
-            const key = json.server + '.' + json.tool;
-            const autoChat = (convo.autoApproveTools || []).includes(key);
-            const autoGlobal = (settings.autoApproveToolsGlobal || []).includes(key);
-            if(autoChat || autoGlobal){
-              currentStepDiv = addStep(json.server, json.tool, json.args);
-              steps.push({ server: json.server, tool: json.tool, args: json.args, result: null });
-              fetch('/api/mcp/approve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: json.id, approved: true })
-              }).catch(() => {});
-            } else {
-              currentStepDiv = addStep(json.server, json.tool, json.args, json.id);
-              steps.push({ server: json.server, tool: json.tool, args: json.args, result: null });
-            }
-            continue;
-          }
-          if(json.type === 'tool_call'){
-            if(!currentStepDiv || currentStepDiv.querySelector('.step-approve-row')){
-              currentStepDiv = addStep(json.server, json.tool, json.args);
-              steps.push({ server: json.server, tool: json.tool, args: json.args, result: null });
-            }
-            continue;
-          }
-          if(json.type === 'tool_result'){
-            if(currentStepDiv){
-              const last = steps[steps.length - 1];
-              last.ms = finishStep(currentStepDiv, last.server, last.tool, last.args, json.result || '', json.denied);
-            }
-            if(steps.length) steps[steps.length - 1].result = json.result || '';
-            currentStepDiv = null;
-            continue;
-          }
-          const delta = json.choices?.[0]?.delta?.content || '';
-          if(delta){
-            if(firstToken){
-              contentEl.innerHTML = '';
-              firstToken = false;
-              ttft = ((Date.now() - startedAt) / 1000).toFixed(1);
-            }
-            full += delta;
-            contentEl.innerHTML = renderRichContent(full);
-            if(settings.autoScroll !== false) messagesEl.scrollTop = messagesEl.scrollHeight;
-          }
-        }catch(e){}
+      buffer += decoder.decode(value, { stream:true });
+      buffer = buffer.replace(/\r\n/g, '\n');
+      let boundary;
+      while((boundary = buffer.indexOf('\n\n')) !== -1){
+        const block = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+        processEvent(block);
       }
     }
+    buffer += decoder.decode();
+    if(buffer.trim()) processEvent(buffer.trim());
+    if(!sawDone) throwChatError({ message:'The router closed the stream before it finished.', type:'invalid_response' }, 502);
     setStatus(true);
   }catch(err){
-    setStatus(err.name === 'AbortError');
-    if(firstToken) contentEl.innerHTML = '';
     if(err.name === 'AbortError'){
-      contentEl.innerHTML += `<br><span style="color:var(--muted)">[Stopped]</span>`;
+      outcome = 'aborted';
+      setStatus(true);
     }else{
-      contentEl.innerHTML += `<br><span style="color:var(--err)">[Stream error: ${escapeHtml(err.message)}]</span>`;
+      outcome = 'failure';
+      failure = chatErrorFromException(err);
+      queuePaused = true;
+      setStatus(false);
     }
   }finally{
     clearInterval(timerTick);
@@ -2623,38 +2750,30 @@ async function actuallySend(convo, text, attachments){
     convo.totalMs = (convo.totalMs || 0) + totalMs;
     const assistantMeta = `${model} · ${wordCount(full)} words · ${elapsed}s` +
       (ttft !== null ? ` · first token ${ttft}s` : '') + ` · ${timeStr()}`;
-    if(settings.showMeta !== false){
-      const metaSpan = document.createElement('span');
-      metaSpan.className = 'msg-meta';
-      metaSpan.textContent = assistantMeta;
-      const footer = document.createElement('div');
-      footer.className = 'msg-footer';
-      footer.appendChild(metaSpan);
-      const copyBtn = document.createElement('button');
-      copyBtn.className = 'msg-copy-btn';
-      copyBtn.setAttribute('data-tip', 'Copy this message');
-      copyBtn.textContent = '⧉ Copy';
-      copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(contentEl.innerText);
-        copyBtn.textContent = '✓ Copied';
-        setTimeout(() => copyBtn.textContent = '⧉ Copy', 1200);
-      });
-      footer.appendChild(copyBtn);
-      msgBody.appendChild(footer);
+    let assistantMsg = null;
+    if(outcome === 'success'){
+      assistantMsg = { role: 'assistant', turnId, content: full, apiContent: full, meta: assistantMeta, steps };
+    }else if(outcome === 'aborted'){
+      if(full || steps.length) assistantMsg = { role: 'assistant', turnId, content: full + (full ? '\n\n' : '') + '[Stopped]', apiContent: full, meta: assistantMeta, steps };
+    }else if(full || steps.length){
+      assistantMsg = { role: 'assistant', turnId, content: full, apiContent: full, meta: assistantMeta, steps, incomplete: true };
     }
-    const assistantMsg = { role: 'assistant', content: full, apiContent: full, meta: assistantMeta, steps };
-    convo.messages.push(assistantMsg);
+    if(assistantMsg) convo.messages.push(assistantMsg);
+    if(outcome === 'failure') convo.messages.push({ role: 'error_ui', turnId, error: failure });
     convo.updatedAt = Date.now();
     saveConversations();
-    // now that it is stored, its checkboxes can be ticked
-    wireChecklists(assistantWrap, assistantMsg);
-    maybeAutoTitle(convo);
     isStreaming = false;
     currentAbortController = null;
     setSendButtonMode(false);
+    renderMessages();
     renderQueueStrip();
     renderStreamActions();
-    await drainQueue(convo);
+    if(outcome === 'success'){
+      maybeAutoTitle(convo);
+      await drainQueue(convo);
+    }else if(outcome === 'aborted'){
+      await drainQueue(convo);
+    }
   }
 }
 
