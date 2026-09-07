@@ -44,6 +44,7 @@
     --anim-rise:8px;
     --ease:cubic-bezier(.22,.61,.36,1);
     --sidebar-w:260px;
+    --step-max-h:140px;
     --msg-width:760px;
     --bubble-width:560px;
     --radius:1;
@@ -256,7 +257,7 @@
   .step-output-label{ font-size:10px; color:var(--muted); letter-spacing:.04em; margin-bottom:4px; }
   .step-result{
     color:var(--text); white-space:pre-wrap; word-break:break-word;
-    max-height:140px; overflow-y:auto; background:var(--panel-alt2); border-radius:6px; padding:6px 8px;
+    max-height:var(--step-max-h); overflow-y:auto; background:var(--panel-alt2); border-radius:6px; padding:6px 8px;
   }
   .step-approve-row{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:8px 10px; border-top:1px solid var(--border); }
   .step-approve-row button{ font-family:inherit; font-size:11px; padding:6px 8px; }
@@ -496,6 +497,7 @@
   .modal-head{
     padding:16px 20px; border-bottom:1px solid var(--border); font-weight:600; font-size:15px;
     font-family:var(--font-display);
+    display:flex; align-items:center; gap:12px;
   }
   .modal-body{ flex:1; display:flex; min-height:0; }
   .modal-nav{
@@ -588,6 +590,46 @@
   body.sidebar-collapsed .sidebar-open{ display:flex; }
   body.sidebar-collapsed #messages{ padding-top:50px; }
   #sidebarScrim{ display:none; }
+
+  /* ---------- markdown checklists ---------- */
+  .checklist-wrap{ margin:8px 0; white-space:normal; }
+  .check-progress{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .check-bar{
+    flex:1; max-width:180px; height:4px; border-radius:2px;
+    background:var(--panel-alt2); overflow:hidden;
+  }
+  .check-bar-fill{ height:100%; background:var(--accent); transition:width var(--anim-med) var(--ease); }
+  .check-count{ font-size:11px; color:var(--muted); font-family:var(--font-mono); }
+  ul.checklist{ list-style:none; margin:0; padding:0; }
+  ul.checklist li.check-item{ display:flex; align-items:flex-start; gap:8px; margin-bottom:4px; }
+  .check-item .cb{
+    width:15px; height:15px; flex-shrink:0; margin-top:3px; cursor:pointer; user-select:none;
+    border:1.5px solid var(--border); border-radius:calc(4px * var(--radius));
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; line-height:1; color:transparent;
+    transition:background-color var(--anim) var(--ease), border-color var(--anim) var(--ease), color var(--anim) var(--ease);
+  }
+  .check-item .cb:hover{ border-color:var(--accent); }
+  .check-item.done .cb{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .check-item.done .ct{ color:var(--muted); text-decoration:line-through; }
+  .check-item .ct{ flex:1; }
+
+  /* ---------- execution time ---------- */
+  .stream-timer{
+    display:none; font-family:var(--font-mono); font-size:11px;
+    color:var(--muted); margin-bottom:6px;
+  }
+  .stream-timer.show{ display:block; }
+  .step-time{ font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+
+  /* ---------- settings search ---------- */
+  #settingsSearch{
+    margin-left:auto; width:220px; font-family:var(--font-ui); font-weight:400;
+    font-size:12px; padding:6px 12px; border-radius:calc(20px * var(--radius));
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text); outline:none;
+  }
+  #settingsSearch:focus{ border-color:var(--accent-dim); }
+  #settingsNoResults{ display:none; padding:26px 22px; color:var(--muted); font-size:13px; }
 
   /* ---------- compose-while-streaming actions ---------- */
   #streamActions{
@@ -742,6 +784,8 @@
   body.no-anim button:active:not(:disabled),
   body.no-anim .composer-send:active:not(:disabled){ transform:none; }
   /* …but keep the two genuine "something is running" indicators moving */
+  body.wrap-code pre.codeblock{ white-space:pre-wrap; word-break:break-word; }
+
   body.no-anim .thinking-dots span{ animation-duration:1.2s !important; }
   body.no-anim .thinking-dots span:nth-child(1){ animation-delay:-.32s !important; }
   body.no-anim .thinking-dots span:nth-child(2){ animation-delay:-.16s !important; }
@@ -826,10 +870,15 @@
 <!-- settings modal -->
 <div id="settingsOverlay" class="modal-overlay">
   <div class="modal">
-    <div class="modal-head">Settings</div>
+    <div class="modal-head">
+      <span>Settings</span>
+      <input id="settingsSearch" placeholder="Search settings…" autocomplete="off" />
+    </div>
+    <div id="settingsNoResults">Nothing matches that.</div>
     <div class="modal-body">
       <div class="modal-nav">
         <div class="modal-nav-item active" data-page="general"><span class="ic">◧</span>General</div>
+        <div class="modal-nav-item" data-page="chat"><span class="ic">◍</span>Chat</div>
         <div class="modal-nav-item" data-page="appearance"><span class="ic">◐</span>Appearance</div>
         <div class="modal-nav-item" data-page="skills"><span class="ic">✦</span>Skills</div>
         <div class="modal-nav-item" data-page="api"><span class="ic">⚿</span>API</div>
@@ -858,6 +907,63 @@
             <textarea id="setMemory" placeholder="e.g. Keep answers short. I use Windows and PowerShell."></textarea>
           </div>
           <button class="reset-link" id="memoryReset">Reset to Default</button>
+        </div>
+      </div>
+
+      <div class="modal-page" data-content="chat" style="display:none;">
+        <div class="modal-page-title">Chat</div>
+        <div class="modal-section">
+          <div class="modal-section-title">Rendering</div>
+          <div class="toggle-row">
+            <span>Render markdown</span>
+            <div class="toggle-switch" id="mdToggle"><div class="knob"></div></div>
+          </div>
+          <div class="mcp-hint">Off shows replies as plain text, exactly as they arrive.</div>
+          <div class="toggle-row">
+            <span>Interactive checklists</span>
+            <div class="toggle-switch" id="checklistToggle"><div class="knob"></div></div>
+          </div>
+          <div class="mcp-hint">Turns <code>- [ ]</code> task lists into boxes you can tick. Ticking one rewrites the message text, so it survives a reload — and the model sees the updated list if you keep chatting.</div>
+          <div class="toggle-row">
+            <span>Wrap long code lines</span>
+            <div class="toggle-switch" id="wrapCodeToggle"><div class="knob"></div></div>
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Tool calls</div>
+          <div class="toggle-row">
+            <span>Collapse tool steps by default</span>
+            <div class="toggle-switch" id="collapseStepsToggle"><div class="knob"></div></div>
+          </div>
+          <div class="toggle-row">
+            <span>Show how long each call took</span>
+            <div class="toggle-switch" id="stepTimesToggle"><div class="knob"></div></div>
+          </div>
+          <div class="slider-row" style="margin-top:8px;">
+            <span style="font-size:12px;color:var(--muted);min-width:84px;">Output height</span>
+            <input type="range" id="stepMaxH" min="80" max="600" step="20" />
+            <span class="val" id="stepMaxHVal">140</span>
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">While a reply streams</div>
+          <div class="toggle-row">
+            <span>Show a live timer</span>
+            <div class="toggle-switch" id="timerToggle"><div class="knob"></div></div>
+          </div>
+          <div class="toggle-row">
+            <span>Follow the reply as it arrives</span>
+            <div class="toggle-switch" id="autoScrollToggle"><div class="knob"></div></div>
+          </div>
+          <div class="mcp-hint">With following off the view stays where you left it, so you can read back through the chat while a reply comes in.</div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Sidebar timestamps</div>
+          <div class="seg-row" id="timeFormatRow">
+            <div class="seg-btn" data-tf="relative">Relative</div>
+            <div class="seg-btn" data-tf="clock">Clock</div>
+            <div class="seg-btn" data-tf="both">Both</div>
+          </div>
         </div>
       </div>
 
@@ -1411,6 +1517,8 @@ function applyAppearance(){
   root.setProperty('--bubble-width', Math.round((settings.msgWidth ?? 760) * 0.74) + 'px');
   root.setProperty('--radius', (settings.radiusScale ?? 100) / 100);
   root.setProperty('--sidebar-w', (settings.sidebarWidth ?? 260) + 'px');
+  root.setProperty('--step-max-h', (settings.stepMaxH ?? 140) + 'px');
+  document.body.classList.toggle('wrap-code', !!settings.wrapCode);
   document.body.classList.toggle('compact', !!settings.compact);
   document.body.classList.toggle('sidebar-collapsed', !!settings.sidebarCollapsed);
 
@@ -1467,9 +1575,10 @@ function renderConvoList(){
     }
     const div = document.createElement('div');
     div.className = 'convo' + (c.id === activeId ? ' active' : '');
-    div.title = c.title + (c.updatedAt ? ' — ' + new Date(c.updatedAt).toLocaleString() : '');
+    div.title = c.title + (c.updatedAt ? ' — ' + new Date(c.updatedAt).toLocaleString() : '') +
+      (c.totalMs ? '\nModel time: ' + (c.totalMs / 1000).toFixed(1) + 's' : '');
     div.innerHTML = `<span class="title-text">${escapeHtml(c.title)}</span>` +
-      (showTimes ? `<span class="convo-time">${escapeHtml(relTime(c.updatedAt))}</span>` : '') +
+      (showTimes ? `<span class="convo-time">${escapeHtml(convoTimeLabel(c.updatedAt))}</span>` : '') +
       `<span class="del">✕</span>`;
     div.addEventListener('click', (e) => {
       if(e.target.classList.contains('del')){
@@ -1526,14 +1635,62 @@ function mdInline(line){
   s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   return s;
 }
+/* Ordinal of each checkbox across the whole message, so a click can find the
+   matching "- [ ]" in the raw text. Reset per message by renderRichContent. */
+let checkOrdinal = 0;
+
+/* Flips the Nth checkbox in a message's source text. Fenced code is skipped so
+   its ordinals line up with what renderMarkdownBlock actually rendered. */
+function toggleChecklistItem(text, ordinal){
+  const parts = String(text).split(/```(\w*)\n([\s\S]*?)```/g);
+  let n = 0;
+  for(let i = 0; i < parts.length; i += 3){
+    if(!parts[i]) continue;
+    parts[i] = parts[i].replace(/^(\s*[-*+] )\[([ xX])\]/gm, (m, pre, mark) =>
+      n++ === ordinal ? pre + (mark === ' ' ? '[x]' : '[ ]') : m);
+  }
+  let out = '';
+  for(let i = 0; i < parts.length; i += 3){
+    out += parts[i] || '';
+    if(parts[i+2] !== undefined) out += '```' + (parts[i+1] || '') + '\n' + parts[i+2] + '```';
+  }
+  return out;
+}
+
 function renderMarkdownBlock(text){
   const lines = text.split('\n');
   let html = '';
   let inUl = false, inOl = false;
-  const closeLists = () => { if(inUl){ html += '</ul>'; inUl = false; } if(inOl){ html += '</ol>'; inOl = false; } };
+  let inCheck = false, checkBuf = '', checkDone = 0, checkTotal = 0;
+  const closeCheck = () => {
+    if(!inCheck) return;
+    const pct = checkTotal ? Math.round(checkDone / checkTotal * 100) : 0;
+    html += `<div class="checklist-wrap"><div class="check-progress">` +
+            `<div class="check-bar"><div class="check-bar-fill" style="width:${pct}%"></div></div>` +
+            `<span class="check-count">${checkDone}/${checkTotal}</span></div>` +
+            `<ul class="checklist">${checkBuf}</ul></div>`;
+    inCheck = false; checkBuf = ''; checkDone = 0; checkTotal = 0;
+  };
+  const closeLists = () => {
+    closeCheck();
+    if(inUl){ html += '</ul>'; inUl = false; }
+    if(inOl){ html += '</ol>'; inOl = false; }
+  };
   for(const line of lines){
     const h3 = line.match(/^### (.*)/), h2 = line.match(/^## (.*)/), h1 = line.match(/^# (.*)/);
+    const ck = line.match(/^\s*[-*+] \[([ xX])\] (.*)$/);
     const ul = line.match(/^[-*] (.*)/), ol = line.match(/^\d+\. (.*)/);
+    if(ck && settings.checklists !== false){
+      if(!inCheck){ closeLists(); inCheck = true; }
+      const done = ck[1] !== ' ';
+      if(done) checkDone++;
+      checkTotal++;
+      checkBuf += `<li class="check-item${done ? ' done' : ''}">` +
+                  `<span class="cb" data-ci="${checkOrdinal}" role="checkbox" aria-checked="${done}" title="${done ? 'Uncheck' : 'Check'}">✓</span>` +
+                  `<span class="ct">${mdInline(ck[2])}</span></li>`;
+      checkOrdinal++;
+      continue;
+    }
     if(h3){ closeLists(); html += `<h3>${mdInline(h3[1])}</h3>`; continue; }
     if(h2){ closeLists(); html += `<h2>${mdInline(h2[1])}</h2>`; continue; }
     if(h1){ closeLists(); html += `<h1>${mdInline(h1[1])}</h1>`; continue; }
@@ -1562,6 +1719,8 @@ function highlightCode(code){
   return result;
 }
 function renderRichContent(text){
+  checkOrdinal = 0;
+  if(settings.markdown === false) return escapeHtml(text || '');
   const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
   let html = '';
   for(let i = 0; i < parts.length; i += 3){
@@ -1598,6 +1757,12 @@ function relTime(ts){
   return d.toLocaleDateString([], { day:'numeric', month:'short', year:'2-digit' });
 }
 /* which sidebar bucket a conversation falls into */
+function convoTimeLabel(ts){
+  const f = settings.timeFormat || 'relative';
+  if(f === 'clock') return timeStr(ts);
+  if(f === 'both') return relTime(ts) + ' · ' + timeStr(ts);
+  return relTime(ts);
+}
 function dayBucket(ts){
   if(!ts) return 'Older';
   const start = new Date(); start.setHours(0,0,0,0);
@@ -1624,7 +1789,7 @@ function extractResultImages(resultText){
   }catch(e){}
   return [];
 }
-function buildStepCardHtml(server, tool, args, result, running, pendingApprovalId){
+function buildStepCardHtml(server, tool, args, result, running, pendingApprovalId, ms){
   const argsStr = JSON.stringify({ tool: `${server}.${tool}`, args: args || {} });
   const statusLabel = pendingApprovalId ? 'Needs approval' : running ? 'Running' : (result && result.denied) ? 'Denied' : 'Done';
   const statusClass = pendingApprovalId ? 'running' : running ? 'running' : (result && result.denied) ? 'denied' : 'done';
@@ -1644,6 +1809,7 @@ function buildStepCardHtml(server, tool, args, result, running, pendingApprovalI
       <span class="step-icon">${running || pendingApprovalId ? '⟳' : '🔧'}</span>
       <span class="step-tool">${escapeHtml(server)}</span>
       <span class="step-status ${statusClass}">${statusLabel}</span>
+      ${ms != null && settings.showStepTimes !== false ? `<span class="step-time">${(ms / 1000).toFixed(1)}s</span>` : ''}
       <span class="spacer"></span>
       <span class="step-copy" title="copy">⧉</span>
       <span class="step-chev" title="toggle">⌄</span>
@@ -1694,7 +1860,7 @@ function renderMessages(){
   for(const m of convo.messages){
     if(m.role === 'system_ui') { appendMsgDom('system', m.content); continue; }
     if(m.role === 'system') continue;
-    const wrap = appendMsgDom(m.role, m.displayText ?? m.content, m.attachments, m.meta);
+    const wrap = appendMsgDom(m.role, m.displayText ?? m.content, m.attachments, m.meta, m);
     if(m.steps && m.steps.length){
       const stepsEl = document.createElement('div');
       stepsEl.className = 'tool-steps';
@@ -1702,7 +1868,8 @@ function renderMessages(){
       for(const s of m.steps){
         const div = document.createElement('div');
         div.className = 'tool-step';
-        div.innerHTML = buildStepCardHtml(s.server, s.tool, s.args, s.result, false);
+        div.innerHTML = buildStepCardHtml(s.server, s.tool, s.args, s.result, false, null, s.ms);
+        if(settings.collapseSteps) div.querySelector('.tool-step-body').classList.add('collapsed');
         stepsEl.appendChild(div);
         wireStepCard(div);
       }
@@ -1711,7 +1878,34 @@ function renderMessages(){
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function appendMsgDom(role, text, attachments, meta){
+/* Ticking a box rewrites the stored message, so the state is real and persists. */
+function wireChecklists(wrap, msgObj){
+  wrap.querySelectorAll('.check-item .cb').forEach(cb => {
+    cb.addEventListener('click', () => {
+      if(!msgObj) return;   // still streaming; nothing stored to edit yet
+      const ord = parseInt(cb.dataset.ci, 10);
+      for(const k of ['content', 'displayText', 'apiContent']){
+        if(typeof msgObj[k] === 'string') msgObj[k] = toggleChecklistItem(msgObj[k], ord);
+      }
+      saveConversations();
+      const contentEl = wrap.querySelector('.content');
+      contentEl.innerHTML = renderRichContent(msgObj.displayText ?? msgObj.content ?? '');
+      wireChecklists(wrap, msgObj);
+      wireCodeCopyButtons(wrap);
+    });
+  });
+}
+function wireCodeCopyButtons(wrap){
+  wrap.querySelectorAll('.codeblock-wrap .copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      navigator.clipboard.writeText(decodeURIComponent(btn.dataset.code));
+      btn.textContent = 'copied';
+      setTimeout(() => btn.textContent = 'copy', 1200);
+    });
+  });
+}
+
+function appendMsgDom(role, text, attachments, meta, msgObj){
   const empty = messagesEl.querySelector('.empty');
   if(empty) empty.remove();
   const wrap = document.createElement('div');
@@ -1733,13 +1927,8 @@ function appendMsgDom(role, text, attachments, meta){
     `<div class="msg-body"><div class="who">${who}</div><div class="content">${role==='system' ? escapeHtml(text) : renderRichContent(text || '')}</div>${attachHtml}${footerHtml}</div>`;
   messagesEl.appendChild(wrap);
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  wrap.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      navigator.clipboard.writeText(decodeURIComponent(btn.dataset.code));
-      btn.textContent = 'copied';
-      setTimeout(() => btn.textContent = 'copy', 1200);
-    });
-  });
+  wireCodeCopyButtons(wrap);
+  wireChecklists(wrap, msgObj);
   const msgCopyBtn = wrap.querySelector('.msg-copy-btn');
   if(msgCopyBtn){
     msgCopyBtn.addEventListener('click', () => {
@@ -2086,10 +2275,11 @@ async function actuallySend(convo, text, attachments){
   }
   const userTs = Date.now();
   const userMeta = `${wordCount(displayText)} words · ${timeStr(userTs)}`;
-  convo.messages.push({ role: 'user', content: text, displayText, apiContent, attachments, meta: userMeta });
+  const userMsg = { role: 'user', content: text, displayText, apiContent, attachments, meta: userMeta };
+  convo.messages.push(userMsg);
   saveConversations();
   renderConvoList();
-  appendMsgDom('user', displayText, attachments, userMeta);
+  appendMsgDom('user', displayText, attachments, userMeta, userMsg);
   inputEl.value = '';
   inputEl.style.height = 'auto';
   $('inputCount').textContent = '0';
@@ -2107,6 +2297,16 @@ async function actuallySend(convo, text, attachments){
   msgBody.insertBefore(stepsEl, contentEl);
   contentEl.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
   const startedAt = Date.now();
+  const timerEl = document.createElement('div');
+  timerEl.className = 'stream-timer';
+  msgBody.insertBefore(timerEl, stepsEl);
+  let ttft = null;
+  const timerTick = setInterval(() => {
+    if(settings.showTimer === false){ timerEl.classList.remove('show'); return; }
+    timerEl.textContent = '⏱ ' + ((Date.now() - startedAt) / 1000).toFixed(1) + 's' +
+      (ttft !== null ? '  ·  first token ' + ttft + 's' : '');
+    timerEl.classList.add('show');
+  }, 100);
   let full = '';
   let firstToken = true;
   let currentStepDiv = null;
@@ -2117,6 +2317,8 @@ async function actuallySend(convo, text, attachments){
     const div = document.createElement('div');
     div.className = 'tool-step' + (pendingApprovalId ? '' : ' pending');
     div.innerHTML = buildStepCardHtml(server, tool, args, null, true, pendingApprovalId);
+    div.__startedAt = Date.now();
+    if(settings.collapseSteps) div.querySelector('.tool-step-body').classList.add('collapsed');
     wireStepCard(div, handleApproval, server, tool);
     stepsEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -2126,9 +2328,11 @@ async function actuallySend(convo, text, attachments){
     div.classList.remove('pending');
     const body = div.querySelector('.tool-step-body');
     const collapsed = body.classList.contains('collapsed');
-    div.innerHTML = buildStepCardHtml(server, tool, args, denied ? { denied: true } : resultText, false);
+    const ms = div.__startedAt ? Date.now() - div.__startedAt : null;
+    div.innerHTML = buildStepCardHtml(server, tool, args, denied ? { denied: true } : resultText, false, null, ms);
     if(collapsed) div.querySelector('.tool-step-body').classList.add('collapsed');
     wireStepCard(div);
+    return ms;
   }
   async function handleApproval(id, action, div, server, tool){
     div.querySelector('.step-approve-row')?.remove();
@@ -2214,7 +2418,7 @@ async function actuallySend(convo, text, attachments){
           if(json.type === 'tool_result'){
             if(currentStepDiv){
               const last = steps[steps.length - 1];
-              finishStep(currentStepDiv, last.server, last.tool, last.args, json.result || '', json.denied);
+              last.ms = finishStep(currentStepDiv, last.server, last.tool, last.args, json.result || '', json.denied);
             }
             if(steps.length) steps[steps.length - 1].result = json.result || '';
             currentStepDiv = null;
@@ -2222,10 +2426,14 @@ async function actuallySend(convo, text, attachments){
           }
           const delta = json.choices?.[0]?.delta?.content || '';
           if(delta){
-            if(firstToken){ contentEl.innerHTML = ''; firstToken = false; }
+            if(firstToken){
+              contentEl.innerHTML = '';
+              firstToken = false;
+              ttft = ((Date.now() - startedAt) / 1000).toFixed(1);
+            }
             full += delta;
             contentEl.innerHTML = renderRichContent(full);
-            messagesEl.scrollTop = messagesEl.scrollHeight;
+            if(settings.autoScroll !== false) messagesEl.scrollTop = messagesEl.scrollHeight;
           }
         }catch(e){}
       }
@@ -2240,8 +2448,13 @@ async function actuallySend(convo, text, attachments){
       contentEl.innerHTML += `<br><span style="color:var(--err)">[stream error: ${escapeHtml(err.message)}]</span>`;
     }
   }finally{
-    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-    const assistantMeta = `${model} · ${wordCount(full)} words · ${elapsed}s · ${timeStr()}`;
+    clearInterval(timerTick);
+    timerEl.remove();
+    const totalMs = Date.now() - startedAt;
+    const elapsed = (totalMs / 1000).toFixed(1);
+    convo.totalMs = (convo.totalMs || 0) + totalMs;
+    const assistantMeta = `${model} · ${wordCount(full)} words · ${elapsed}s` +
+      (ttft !== null ? ` · first token ${ttft}s` : '') + ` · ${timeStr()}`;
     if(settings.showMeta !== false){
       const metaSpan = document.createElement('span');
       metaSpan.className = 'msg-meta';
@@ -2261,9 +2474,12 @@ async function actuallySend(convo, text, attachments){
       footer.appendChild(copyBtn);
       msgBody.appendChild(footer);
     }
-    convo.messages.push({ role: 'assistant', content: full, apiContent: full, meta: assistantMeta, steps });
+    const assistantMsg = { role: 'assistant', content: full, apiContent: full, meta: assistantMeta, steps };
+    convo.messages.push(assistantMsg);
     convo.updatedAt = Date.now();
     saveConversations();
+    // now that it is stored, its checkboxes can be ticked
+    wireChecklists(assistantWrap, assistantMsg);
     maybeAutoTitle(convo);
     isStreaming = false;
     currentAbortController = null;
@@ -2580,6 +2796,9 @@ function openSettings(){
   renderGradGrid();
   renderFontSizeRow();
   renderColorSpread();
+  renderChatSettings();
+  $('settingsSearch').value = '';
+  applySettingsSearch();
   renderCustomTheme();
   renderLayoutSliders();
   renderConvoToggles();
@@ -2721,6 +2940,83 @@ $('compactToggle').addEventListener('click', () => {
   settings.compact = !settings.compact;
   applyAppearance(); renderCompactToggle();
 });
+/* ---------- chat behaviour ---------- */
+const CHAT_TOGGLES = [
+  { el:'mdToggle',            key:'markdown',       on:v => v !== false },
+  { el:'checklistToggle',     key:'checklists',     on:v => v !== false },
+  { el:'wrapCodeToggle',      key:'wrapCode',       on:v => !!v },
+  { el:'collapseStepsToggle', key:'collapseSteps',  on:v => !!v },
+  { el:'stepTimesToggle',     key:'showStepTimes',  on:v => v !== false },
+  { el:'timerToggle',         key:'showTimer',      on:v => v !== false },
+  { el:'autoScrollToggle',    key:'autoScroll',     on:v => v !== false }
+];
+function renderChatSettings(){
+  for(const t of CHAT_TOGGLES) $(t.el).classList.toggle('on', t.on(settings[t.key]));
+  $('stepMaxH').value = settings.stepMaxH ?? 140;
+  $('stepMaxHVal').textContent = $('stepMaxH').value;
+  const tf = settings.timeFormat || 'relative';
+  document.querySelectorAll('#timeFormatRow .seg-btn').forEach(el => {
+    el.classList.toggle('active', el.dataset.tf === tf);
+  });
+}
+for(const t of CHAT_TOGGLES){
+  $(t.el).addEventListener('click', () => {
+    settings[t.key] = !t.on(settings[t.key]);
+    applyAppearance(); renderChatSettings(); renderMessages();
+  });
+}
+$('stepMaxH').addEventListener('input', () => {
+  settings.stepMaxH = parseInt($('stepMaxH').value, 10);
+  $('stepMaxHVal').textContent = settings.stepMaxH;
+  applyAppearance();
+});
+document.querySelectorAll('#timeFormatRow .seg-btn').forEach(el => {
+  el.addEventListener('click', () => {
+    settings.timeFormat = el.dataset.tf;
+    renderChatSettings(); renderConvoList();
+  });
+});
+
+/* ---------- settings search ---------- */
+function applySettingsSearch(){
+  const q = $('settingsSearch').value.trim().toLowerCase();
+  const pages = document.querySelectorAll('.modal-page');
+  if(!q){
+    const activeItem = document.querySelector('.modal-nav-item.active');
+    const active = activeItem ? activeItem.dataset.page : 'general';
+    pages.forEach(p => {
+      p.style.display = p.dataset.content === active ? 'block' : 'none';
+      p.querySelectorAll('.modal-section').forEach(sec => sec.style.display = '');
+    });
+    $('settingsNoResults').style.display = 'none';
+    return;
+  }
+  let hits = 0;
+  pages.forEach(p => {
+    const sections = p.querySelectorAll('.modal-section');
+    if(!sections.length){
+      // pages built without .modal-section wrappers match as a whole
+      const match = p.textContent.toLowerCase().includes(q);
+      p.style.display = match ? 'block' : 'none';
+      if(match) hits++;
+      return;
+    }
+    let shown = 0;
+    sections.forEach(sec => {
+      const match = sec.textContent.toLowerCase().includes(q);
+      sec.style.display = match ? '' : 'none';
+      if(match) shown++;
+    });
+    p.style.display = shown ? 'block' : 'none';
+    hits += shown;
+  });
+  $('settingsNoResults').style.display = hits ? 'none' : 'block';
+}
+$('settingsSearch').addEventListener('input', applySettingsSearch);
+$('settingsSearch').addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){ $('settingsSearch').value = ''; applySettingsSearch(); }
+});
+
 /* ---------- accent spread ---------- */
 function renderColorSpread(){
   $('tintStrength').value = settings.tint ?? 0;
@@ -2932,8 +3228,11 @@ document.querySelectorAll('.modal-nav-item').forEach(item => {
     document.querySelectorAll('.modal-nav-item').forEach(i => i.classList.remove('active'));
     item.classList.add('active');
     const page = item.dataset.page;
+    $('settingsSearch').value = '';
+    $('settingsNoResults').style.display = 'none';
     document.querySelectorAll('.modal-page').forEach(p => {
       p.style.display = p.dataset.content === page ? 'block' : 'none';
+      p.querySelectorAll('.modal-section').forEach(sec => sec.style.display = '');
     });
   });
 });
