@@ -21,6 +21,29 @@
     --accent-dim:#6f89d9;
     --user:#5ecbb0;
     --err:#ff6b6b;
+    --warn:#f5a623;
+    /* text that sits on top of a solid accent / user coloured surface */
+    --on-accent:#141312;
+    --on-accent-dim:#ffffff;
+    --on-user:#141312;
+    /* translucent accent washes used for chips, active nav rows, hovers */
+    --accent-soft:rgba(147,176,255,.10);
+    --accent-softer:rgba(147,176,255,.14);
+    --accent-line:rgba(147,176,255,.22);
+    --scrim:rgba(11,12,16,.85);
+    --overlay:rgba(0,0,0,.55);
+    /* typography */
+    --font-ui:-apple-system,Segoe UI,Inter,system-ui,sans-serif;
+    --font-display:"Space Grotesk", system-ui, sans-serif;
+    --font-mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    --code-scale:1;
+    /* motion — overwritten from JS, zeroed out by body.no-anim */
+    --anim:.18s;
+    --anim-med:.26s;
+    --anim-slow:.4s;
+    --anim-rise:8px;
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --sidebar-w:260px;
     color-scheme: dark;
   }
   *{ box-sizing:border-box; }
@@ -30,27 +53,34 @@
     background-image:var(--bg-gradient,none);
     background-attachment:fixed;
     color:var(--text);
-    font-family:-apple-system,Segoe UI,Inter,system-ui,sans-serif;
+    font-family:var(--font-ui);
     display:flex;
     overflow:hidden;
   }
   code, .mono, .navlabel{
-    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    font-family:var(--font-mono);
   }
   .brand b, .modal-nav-item{
-    font-family:"Space Grotesk", system-ui, sans-serif;
+    font-family:var(--font-display);
   }
   ::-webkit-scrollbar{ width:8px; }
   ::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
 
   /* ---------- sidebar ---------- */
   #sidebar{
-    width:260px; min-width:260px;
+    width:var(--sidebar-w); min-width:0; flex:0 0 auto;
     background:var(--panel);
     border-right:1px solid var(--border);
     display:flex; flex-direction:column;
     overflow:hidden;
+    transition:width var(--anim-slow) var(--ease), border-right-color var(--anim-slow) var(--ease);
   }
+  /* fixed-width inner keeps the contents from reflowing while the shell animates shut */
+  #sidebarInner{
+    width:var(--sidebar-w); height:100%;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  body.sidebar-collapsed #sidebar{ width:0; border-right-color:transparent; }
   .brand{
     font-size:13px; letter-spacing:.02em; color:var(--muted);
     padding:16px 16px 10px; border-bottom:1px solid var(--border);
@@ -115,7 +145,7 @@
     border:1px solid var(--border); background:var(--panel-alt); color:var(--text); padding:8px 10px;
   }
   button:hover{ border-color:var(--accent-dim); }
-  button.primary{ background:var(--accent-dim); border-color:var(--accent-dim); color:#fff; }
+  button.primary{ background:var(--accent-dim); border-color:var(--accent-dim); color:var(--on-accent-dim); }
   button.primary:hover{ background:var(--accent); }
   button.ghost{ background:transparent; border-color:transparent; color:var(--muted); }
   button.ghost:hover{ color:var(--text); border-color:var(--border); }
@@ -123,7 +153,7 @@
   .row{ display:flex; gap:8px; }
   .row > *{ flex:1; }
   .pill-btn{
-    border-radius:20px; background:var(--accent-dim); border-color:var(--accent-dim); color:#fff; padding:9px 18px;
+    border-radius:20px; background:var(--accent-dim); border-color:var(--accent-dim); color:var(--on-accent-dim); padding:9px 18px;
   }
   .pill-btn:hover{ background:var(--accent); }
 
@@ -162,7 +192,7 @@
   .msg.system .who{ color:var(--err); }
   .content{ white-space:pre-wrap; line-height:1.55; font-size:14.5px; word-wrap:break-word; }
   .content h1, .content h2, .content h3{
-    font-family:"Space Grotesk", system-ui, sans-serif; margin:10px 0 6px; white-space:normal;
+    font-family:var(--font-display); margin:10px 0 6px; white-space:normal;
   }
   .content h1{ font-size:1.3em; } .content h2{ font-size:1.15em; } .content h3{ font-size:1.05em; }
   .content ul, .content ol{ margin:6px 0 6px 20px; padding:0; white-space:normal; }
@@ -194,7 +224,7 @@
   .tool-steps{ margin-bottom:8px; display:flex; flex-direction:column; gap:8px; }
   .tool-step{
     border:1px solid var(--border); border-radius:10px; background:var(--panel-alt); overflow:hidden;
-    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; font-size:12px;
+    font-family:var(--font-mono); font-size:calc(12px * var(--code-scale));
   }
   .tool-step-head{
     display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer; color:var(--text);
@@ -207,7 +237,7 @@
     font-size:10px; padding:1px 8px; border-radius:10px; border:1px solid var(--border); color:var(--muted);
   }
   .step-status.done{ color:var(--user); border-color:var(--user); }
-  .step-status.running{ color:#f5a623; border-color:#f5a623; }
+  .step-status.running{ color:var(--warn); border-color:var(--warn); }
   .step-status.denied{ color:var(--err); border-color:var(--err); }
   .tool-step-head .spacer{ flex:1; }
   .tool-step-head .step-copy, .tool-step-head .step-chev{
@@ -227,7 +257,7 @@
   }
   .step-approve-row{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:8px 10px; border-top:1px solid var(--border); }
   .step-approve-row button{ font-family:inherit; font-size:11px; padding:6px 8px; }
-  .step-approve-row .approve-btn{ background:var(--user); border-color:var(--user); color:#141312; }
+  .step-approve-row .approve-btn{ background:var(--user); border-color:var(--user); color:var(--on-user); }
   .step-approve-row .deny-btn{ background:transparent; border-color:var(--err); color:var(--err); }
   .step-approve-row .allow-chat-btn, .step-approve-row .allow-all-btn{ background:transparent; border-color:var(--accent-dim); color:var(--accent); }
 
@@ -239,7 +269,7 @@
   #messages.bubbles .msg .content{
     display:inline-block; max-width:560px; padding:10px 14px; border-radius:16px;
   }
-  #messages.bubbles .msg.user .content{ background:var(--accent); color:#141312; border-bottom-right-radius:4px; }
+  #messages.bubbles .msg.user .content{ background:var(--accent); color:var(--on-accent); border-bottom-right-radius:4px; }
   #messages.bubbles .msg.assistant .content{ background:var(--panel-alt2); border-bottom-left-radius:4px; }
   #messages.bubbles .msg.system .content{ background:transparent; padding:0; }
   #messages.bubbles .who{ display:none; }
@@ -257,7 +287,7 @@
     background:var(--panel-alt); border:1px solid var(--border); border-radius:8px;
     padding:34px 14px 12px; margin:0; overflow-x:auto;
   }
-  pre.codeblock code{ font-size:13px; line-height:1.5; color:var(--text); }
+  pre.codeblock code{ font-size:calc(13px * var(--code-scale)); line-height:1.5; color:var(--text); }
   .codeblock-wrap .copy-btn{
     position:absolute; top:6px; right:6px; font-size:11px; padding:3px 8px; z-index:2;
     background:var(--panel-alt2); border:1px solid var(--border); border-radius:5px;
@@ -266,17 +296,17 @@
   .codeblock-wrap .copy-btn:hover{ color:var(--text); border-color:var(--accent-dim); }
   code.inline{
     background:var(--panel-alt2); border:1px solid var(--border); border-radius:14px;
-    padding:2px 8px; font-size:.88em;
+    padding:2px 8px; font-size:calc(.88em * var(--code-scale));
   }
   .tok-comment{ color:var(--muted); font-style:italic; }
   .tok-string{ color:var(--user); }
-  .tok-number{ color:#f5a623; }
+  .tok-number{ color:var(--warn); }
   .tok-keyword{ color:var(--accent); font-weight:600; }
 
   .empty{ color:var(--muted); font-size:13px; padding:40px 0; }
 
   #dropZone{
-    position:absolute; inset:0; background:rgba(11,12,16,.85);
+    position:absolute; inset:0; background:var(--scrim);
     display:none; align-items:center; justify-content:center;
     color:var(--accent); font-size:14px; border:2px dashed var(--accent-dim);
     margin:12px; border-radius:10px; z-index:20; pointer-events:none;
@@ -334,7 +364,7 @@
   .composer-send{
     position:absolute; top:10px; right:10px; z-index:1;
     width:30px; height:30px; border-radius:50%;
-    background:var(--accent); border:none; color:#141312;
+    background:var(--accent); border:none; color:var(--on-accent);
     display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; font-size:15px;
   }
   .composer-send:hover{ filter:brightness(1.08); }
@@ -424,7 +454,7 @@
 
   /* ---------- settings modal (multi-page, sidebar nav) ---------- */
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
+    position:fixed; inset:0; background:var(--overlay); display:none;
     align-items:center; justify-content:center; z-index:50;
   }
   .modal-overlay.show{ display:flex; }
@@ -434,7 +464,7 @@
   }
   .modal-head{
     padding:16px 20px; border-bottom:1px solid var(--border); font-weight:600; font-size:15px;
-    font-family:"Space Grotesk", system-ui, sans-serif;
+    font-family:var(--font-display);
   }
   .modal-body{ flex:1; display:flex; min-height:0; }
   .modal-nav{
@@ -447,9 +477,9 @@
   }
   .modal-nav-item .ic{ font-size:14px; width:16px; text-align:center; }
   .modal-nav-item:hover{ background:var(--panel-alt2); color:var(--text); }
-  .modal-nav-item.active{ background:rgba(147,176,255,.14); color:var(--accent); }
+  .modal-nav-item.active{ background:var(--accent-softer); color:var(--accent); }
   .modal-page{ flex:1; padding:22px; overflow-y:auto; }
-  .modal-page-title{ font-size:16px; font-weight:600; margin-bottom:18px; font-family:"Space Grotesk", system-ui, sans-serif; }
+  .modal-page-title{ font-size:16px; font-weight:600; margin-bottom:18px; font-family:var(--font-display); }
   .modal-section{ margin-bottom:20px; }
   .modal-section-title{ font-size:11px; color:var(--muted); margin-bottom:8px; letter-spacing:.03em; text-transform:uppercase; }
   .modal-hr{ border:none; border-top:1px solid var(--border); margin:20px 0; }
@@ -463,7 +493,7 @@
   .pill-outline{
     border-radius:20px; border:1px solid var(--accent); color:var(--accent); background:transparent; padding:6px 14px;
   }
-  .pill-outline:hover{ background:rgba(147,176,255,.1); }
+  .pill-outline:hover{ background:var(--accent-soft); }
   .pill-solid{
     border-radius:20px; border:1px solid var(--border); background:var(--panel-alt2); color:var(--text); padding:6px 14px;
   }
@@ -490,14 +520,14 @@
   .mcp-server-row{ display:flex; align-items:center; gap:8px; }
   .mcp-server .dot{ width:7px; height:7px; border-radius:50%; background:var(--muted); flex-shrink:0; }
   .mcp-server .dot.on{ background:var(--user); box-shadow:0 0 5px var(--user); }
-  .mcp-server .name{ font-family:ui-monospace,monospace; }
+  .mcp-server .name{ font-family:var(--font-mono); }
   .mcp-server .meta{ color:var(--muted); font-size:11px; }
   .mcp-server .spacer{ flex:1; }
-  .mcp-server .cmd{ color:var(--muted); font-size:11px; font-family:ui-monospace,monospace; margin-top:4px; }
+  .mcp-server .cmd{ color:var(--muted); font-size:11px; font-family:var(--font-mono); margin-top:4px; }
   .mcp-tools{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
   .mcp-tool-chip{
-    font-family:ui-monospace,monospace; font-size:10.5px; color:var(--accent);
-    background:rgba(147,176,255,.08); border:1px solid rgba(147,176,255,.22);
+    font-family:var(--font-mono); font-size:10.5px; color:var(--accent);
+    background:var(--accent-soft); border:1px solid var(--accent-line);
     padding:2px 7px; border-radius:10px;
   }
   .mcp-hint{ font-size:11.5px; color:var(--muted); line-height:1.5; margin-bottom:10px; }
@@ -509,21 +539,142 @@
   .skill-item .skill-name{ font-weight:600; font-size:13px; flex:1; }
   .skill-item .skill-del{ color:var(--err); cursor:pointer; font-size:12px; }
   .skill-item textarea{ margin-top:8px; min-height:50px; }
+
+  /* ---------- sidebar collapse controls ---------- */
+  .brand .rail-btn{
+    margin-left:auto; width:24px; height:24px; padding:0; border-radius:6px;
+    background:transparent; border:1px solid transparent; color:var(--muted);
+    display:flex; align-items:center; justify-content:center; font-size:15px; line-height:1;
+  }
+  .brand .rail-btn:hover{ color:var(--text); border-color:var(--border); }
+  .sidebar-open{
+    position:absolute; top:12px; left:12px; z-index:15;
+    width:28px; height:28px; border-radius:8px; padding:0; font-size:15px; line-height:1;
+    display:none; align-items:center; justify-content:center;
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--muted);
+  }
+  .sidebar-open:hover{ color:var(--text); border-color:var(--accent-dim); }
+  body.sidebar-collapsed .sidebar-open{ display:flex; }
+  body.sidebar-collapsed #messages{ padding-top:50px; }
+  #sidebarScrim{ display:none; }
+
+  @media (max-width:720px){
+    /* sidebar floats over the chat instead of squeezing it */
+    #sidebar{ position:fixed; top:0; bottom:0; left:0; z-index:45; box-shadow:0 0 40px rgba(0,0,0,.45); }
+    #sidebarScrim{ position:fixed; inset:0; background:var(--overlay); z-index:44; }
+    body:not(.sidebar-collapsed) #sidebarScrim{ display:block; animation:fadeIn var(--anim-med) var(--ease) both; }
+    #messages{ padding:24px 14px 8px; }
+    #composer{ margin:10px 14px 14px; }
+    .modal{ height:100vh; max-height:100vh; border-radius:0; }
+    .modal-nav{ width:132px; min-width:132px; }
+  }
+
+  /* ---------- font preview ---------- */
+  .font-preview{
+    margin-top:12px; border:1px solid var(--border); border-radius:10px;
+    background:var(--panel-alt); padding:12px 14px;
+  }
+  .font-preview .fp-title{ font-family:var(--font-display); font-size:15px; font-weight:600; margin-bottom:4px; }
+  .font-preview .fp-body{ font-family:var(--font-ui); font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .font-preview .fp-code{
+    font-family:var(--font-mono); font-size:calc(12.5px * var(--code-scale));
+    background:var(--panel-alt2); border:1px solid var(--border); border-radius:6px;
+    padding:8px 10px; margin:0; overflow-x:auto; color:var(--text);
+  }
+
+  /* ---------- motion ---------- */
+  @keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes msgIn{
+    from{ opacity:0; transform:translateY(var(--anim-rise)); }
+    to{ opacity:1; transform:none; }
+  }
+  @keyframes stepIn{
+    from{ opacity:0; transform:translateY(calc(var(--anim-rise) * -.5)); }
+    to{ opacity:1; transform:none; }
+  }
+  @keyframes modalIn{
+    from{ opacity:0; transform:translateY(var(--anim-rise)) scale(.985); }
+    to{ opacity:1; transform:none; }
+  }
+  @keyframes dropIn{
+    from{ opacity:0; transform:translateY(6px) scale(.98); }
+    to{ opacity:1; transform:none; }
+  }
+  @keyframes chipIn{
+    from{ opacity:0; transform:scale(.9); }
+    to{ opacity:1; transform:none; }
+  }
+  @keyframes runPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.45; } }
+
+  .msg{ animation:msgIn var(--anim-med) var(--ease) both; }
+  .tool-step{ animation:stepIn var(--anim-med) var(--ease) both; }
+  .pending-chip{ animation:chipIn var(--anim) var(--ease) both; }
+  .modal-overlay.show{ animation:fadeIn var(--anim-med) var(--ease) both; }
+  .modal-overlay.show .modal{ animation:modalIn var(--anim-med) var(--ease) both; }
+  .cdrop.open .cdrop-list{ animation:dropIn var(--anim) var(--ease) both; transform-origin:bottom right; }
+  .step-status.running{ animation:runPulse 1.6s ease-in-out infinite; }
+  #queueNotice.show{ animation:fadeIn var(--anim) var(--ease) both; }
+  #dropZone.show{ animation:fadeIn var(--anim) var(--ease) both; }
+
+  button, .seg-btn, .theme-card, .grad-card, .cdrop-item, .cdrop-btn, .convo, .icon-btn,
+  .modal-nav-item, .layout-choice, .pending-chip, .msg-copy-btn, .toggle-switch,
+  .avatar, .step-status, .mcp-tool-chip, .codeblock-wrap .copy-btn, #composer,
+  .field input, .field select, .field textarea{
+    transition:
+      background-color var(--anim) var(--ease),
+      border-color var(--anim) var(--ease),
+      color var(--anim) var(--ease),
+      box-shadow var(--anim) var(--ease),
+      opacity var(--anim) var(--ease),
+      transform var(--anim) var(--ease);
+  }
+  .toggle-switch .knob{ transition:left var(--anim) var(--ease); }
+  .convo .del{ transition:opacity var(--anim) var(--ease); }
+  .convo:hover{ transform:translateX(2px); }
+  .theme-card:hover, .grad-card:hover, .layout-choice:hover{ transform:translateY(-2px); }
+  button:active:not(:disabled), .seg-btn:active, .theme-card:active, .grad-card:active{ transform:scale(.97); }
+  .composer-send:active:not(:disabled){ transform:scale(.9); }
+  .msg-copy-btn:active{ transform:scale(.94); }
+
+  /* animations off: kill every transition and entry animation… */
+  body.no-anim *, body.no-anim *::before, body.no-anim *::after{
+    transition-duration:0s !important;
+    animation-duration:0s !important;
+    animation-delay:0s !important;
+  }
+  body.no-anim .convo:hover,
+  body.no-anim .theme-card:hover,
+  body.no-anim .grad-card:hover,
+  body.no-anim .layout-choice:hover,
+  body.no-anim button:active:not(:disabled),
+  body.no-anim .composer-send:active:not(:disabled){ transform:none; }
+  /* …but keep the two genuine "something is running" indicators moving */
+  body.no-anim .thinking-dots span{ animation-duration:1.2s !important; }
+  body.no-anim .thinking-dots span:nth-child(1){ animation-delay:-.32s !important; }
+  body.no-anim .thinking-dots span:nth-child(2){ animation-delay:-.16s !important; }
+  body.no-anim .tool-step.pending .step-icon{ animation-duration:1s !important; }
 </style>
 </head>
 <body>
 
 <div id="sidebar">
-  <div class="brand"><span id="statusDot" class="dot"></span><b>subrouter</b></div>
-  <button id="newChatBtn" class="primary">+ new chat</button>
-  <div class="navlabel">conversations</div>
-  <div id="convoList"></div>
-  <div id="sidebarFooter">
-    <button id="settingsBtn">⚙ settings</button>
+  <div id="sidebarInner">
+    <div class="brand">
+      <span id="statusDot" class="dot"></span><b>subrouter</b>
+      <button id="sidebarToggle" class="rail-btn" title="Collapse sidebar (Ctrl+B)">‹</button>
+    </div>
+    <button id="newChatBtn" class="primary">+ new chat</button>
+    <div class="navlabel">conversations</div>
+    <div id="convoList"></div>
+    <div id="sidebarFooter">
+      <button id="settingsBtn">⚙ settings</button>
+    </div>
   </div>
 </div>
+<div id="sidebarScrim"></div>
 
 <div id="main">
+  <button id="sidebarOpen" class="sidebar-open" title="Open sidebar (Ctrl+B)">›</button>
   <div id="dropZone">drop files or images to attach</div>
 
   <div id="messages"></div>
@@ -629,6 +780,10 @@
               <div class="label">Chat bubbles</div>
             </div>
           </div>
+          <div class="toggle-row" style="margin-top:10px;">
+            <span>Collapse sidebar <span style="color:var(--muted);font-size:11.5px;">(Ctrl+B)</span></span>
+            <div class="toggle-switch" id="sidebarToggleSetting"><div class="knob"></div></div>
+          </div>
         </div>
         <div class="modal-section">
           <div class="modal-section-title">Avatars</div>
@@ -681,11 +836,70 @@
           </div>
         </div>
         <div class="modal-section">
+          <div class="modal-section-title">Accent spread</div>
+          <div class="mcp-hint">How far the accent bleeds past buttons and links — into panels, borders and muted text.</div>
+          <div class="slider-row">
+            <span style="font-size:12px;color:var(--muted);min-width:64px;">Tint</span>
+            <input type="range" id="tintStrength" min="0" max="100" step="5" />
+            <span class="val" id="tintStrengthVal">0%</span>
+          </div>
+          <div class="toggle-row" style="margin-top:4px;">
+            <span>Derive secondary &amp; code colors from accent</span>
+            <div class="toggle-switch" id="harmonizeToggle"><div class="knob"></div></div>
+          </div>
+          <div class="mcp-hint" style="margin-bottom:0;">The secondary color drives your name, the online dot, strings in code, and “done” badges.</div>
+          <div class="accent-custom-row" id="secondaryRow">
+            <input type="color" id="secondaryPicker" />
+            <input class="hexbox" id="secondaryHex" placeholder="#5ecbb0" maxlength="7" />
+            <button class="reset-link" id="secondaryReset">Reset</button>
+          </div>
+        </div>
+        <div class="modal-section">
           <div class="modal-section-title">Text size</div>
           <div class="seg-row" id="fontSizeRow">
             <div class="seg-btn" data-size="0.9">Small</div>
             <div class="seg-btn" data-size="1">Medium</div>
             <div class="seg-btn" data-size="1.15">Large</div>
+          </div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Fonts</div>
+          <div class="mcp-hint">Non-system fonts are fetched from Google Fonts the first time you pick them. Offline, each one falls back to the closest thing installed locally.</div>
+          <div class="field">
+            <label>Interface</label>
+            <select id="fontUiSel"></select>
+          </div>
+          <div class="field">
+            <label>Headings</label>
+            <select id="fontDisplaySel"></select>
+          </div>
+          <div class="field">
+            <label>Code &amp; monospace</label>
+            <select id="fontMonoSel"></select>
+          </div>
+          <div class="slider-row">
+            <span style="font-size:12px;color:var(--muted);min-width:64px;">Code size</span>
+            <input type="range" id="codeScale" min="80" max="140" step="5" />
+            <span class="val" id="codeScaleVal">100%</span>
+          </div>
+          <div class="font-preview">
+            <div class="fp-title">Headings look like this</div>
+            <div class="fp-body">Interface text — the quick brown fox jumps over the lazy dog, 0123456789.</div>
+            <pre class="fp-code"><code>const reply = await router.chat({ model, stream: true }); // 42</code></pre>
+          </div>
+          <button class="reset-link" id="fontsReset">Reset fonts to default</button>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Motion</div>
+          <div class="toggle-row">
+            <span>Enable animations</span>
+            <div class="toggle-switch" id="animToggle"><div class="knob"></div></div>
+          </div>
+          <div class="mcp-hint">Turns off every transition and entry animation. The thinking dots and the tool-call spinner keep moving either way, so you can still tell when something is running.</div>
+          <div class="seg-row" id="animSpeedRow">
+            <div class="seg-btn" data-speed="subtle">Subtle</div>
+            <div class="seg-btn" data-speed="normal">Normal</div>
+            <div class="seg-btn" data-speed="playful">Playful</div>
           </div>
         </div>
         <div class="modal-section">
@@ -800,12 +1014,12 @@ const messagesEl = $('messages'), inputEl = $('input'), statusDot = $('statusDot
 
 const ACCENTS = ['#93b0ff','#5ecbb0','#f5a623','#ff6b9d','#c19aff'];
 const THEMES = [
-  { id:'midnight', name:'Midnight', bg:'#0b0a09', panel:'#131211', panelAlt:'#1a1917', panelAlt2:'#211f1c', text:'#f8f8f4', muted:'#a8a29e', border:'rgba(255,255,255,.13)', scheme:'dark', accent:'#93b0ff' },
-  { id:'slate',    name:'Slate',    bg:'#0b0e12', panel:'#121722', panelAlt:'#182130', panelAlt2:'#1f2a3a', text:'#eef2f6', muted:'#93a2b0', border:'rgba(255,255,255,.11)', scheme:'dark', accent:'#6fa8ff' },
-  { id:'forest',   name:'Forest',   bg:'#0a0e09', panel:'#11170f', panelAlt:'#161f14', panelAlt2:'#1c2819', text:'#eef4ea', muted:'#9cae95', border:'rgba(255,255,255,.11)', scheme:'dark', accent:'#5ecbb0' },
-  { id:'plum',     name:'Plum',     bg:'#0e0a10', panel:'#160f19', panelAlt:'#1d1521', panelAlt2:'#251a29', text:'#f5eef7', muted:'#af9cb8', border:'rgba(255,255,255,.12)', scheme:'dark', accent:'#c19aff' },
-  { id:'paper',    name:'Paper',    bg:'#e9e4d8', panel:'#f7f4ec', panelAlt:'#ddd6c4', panelAlt2:'#d1c9b3', text:'#22201b', muted:'#6f6a5f', border:'rgba(0,0,0,.12)', scheme:'light', accent:'#3d5ea8' },
-  { id:'blush',    name:'Blush',    bg:'#f2ddd9', panel:'#fbf1ef', panelAlt:'#eccbc6', panelAlt2:'#e3bab4', text:'#241a19', muted:'#8a6d6a', border:'rgba(0,0,0,.11)', scheme:'light', accent:'#c04e6e' }
+  { id:'midnight', name:'Midnight', bg:'#0b0a09', panel:'#131211', panelAlt:'#1a1917', panelAlt2:'#211f1c', text:'#f8f8f4', muted:'#a8a29e', border:'rgba(255,255,255,.13)', user:'#5ecbb0', scheme:'dark', accent:'#93b0ff' },
+  { id:'slate',    name:'Slate',    bg:'#0b0e12', panel:'#121722', panelAlt:'#182130', panelAlt2:'#1f2a3a', text:'#eef2f6', muted:'#93a2b0', border:'rgba(255,255,255,.11)', user:'#57cfd6', scheme:'dark', accent:'#6fa8ff' },
+  { id:'forest',   name:'Forest',   bg:'#0a0e09', panel:'#11170f', panelAlt:'#161f14', panelAlt2:'#1c2819', text:'#eef4ea', muted:'#9cae95', border:'rgba(255,255,255,.11)', user:'#86d98f', scheme:'dark', accent:'#5ecbb0' },
+  { id:'plum',     name:'Plum',     bg:'#0e0a10', panel:'#160f19', panelAlt:'#1d1521', panelAlt2:'#251a29', text:'#f5eef7', muted:'#af9cb8', border:'rgba(255,255,255,.12)', user:'#7fdcc0', scheme:'dark', accent:'#c19aff' },
+  { id:'paper',    name:'Paper',    bg:'#e9e4d8', panel:'#f7f4ec', panelAlt:'#ddd6c4', panelAlt2:'#d1c9b3', text:'#22201b', muted:'#6f6a5f', border:'rgba(0,0,0,.12)', user:'#2f8f74', scheme:'light', accent:'#3d5ea8' },
+  { id:'blush',    name:'Blush',    bg:'#f2ddd9', panel:'#fbf1ef', panelAlt:'#eccbc6', panelAlt2:'#e3bab4', text:'#241a19', muted:'#8a6d6a', border:'rgba(0,0,0,.11)', user:'#3f8f7c', scheme:'light', accent:'#c04e6e' }
 ];
 const GRADIENTS = [
   { id:'none',    name:'None' },
@@ -841,6 +1055,72 @@ function shiftHue(hex, deg){
   return '#'+toHex(r2)+toHex(g2)+toHex(b2);
 }
 
+/* Font choices. `g` is the Google Fonts family spec, omitted for fonts that
+   ship with the OS. Every stack ends in a local fallback so an offline load
+   still renders something sane. */
+const UI_FONTS = [
+  { id:'system',    name:'System default',        stack:'-apple-system,Segoe UI,Inter,system-ui,sans-serif' },
+  { id:'inter',     name:'Inter',                 stack:'"Inter",system-ui,sans-serif', g:'Inter:wght@400;500;600;700' },
+  { id:'grotesk',   name:'Space Grotesk',         stack:'"Space Grotesk",system-ui,sans-serif', g:'Space+Grotesk:wght@400;500;700' },
+  { id:'plexsans',  name:'IBM Plex Sans',         stack:'"IBM Plex Sans",system-ui,sans-serif', g:'IBM+Plex+Sans:wght@400;500;600' },
+  { id:'nunito',    name:'Nunito',                stack:'"Nunito",system-ui,sans-serif', g:'Nunito:wght@400;600;700' },
+  { id:'atkinson',  name:'Atkinson Hyperlegible', stack:'"Atkinson Hyperlegible",system-ui,sans-serif', g:'Atkinson+Hyperlegible:wght@400;700' },
+  { id:'lora',      name:'Lora (serif)',          stack:'"Lora",Georgia,serif', g:'Lora:wght@400;500;600' },
+  { id:'georgia',   name:'Georgia (serif)',       stack:'Georgia,"Times New Roman",serif' }
+];
+const MONO_FONTS = [
+  { id:'system',     name:'System mono',     stack:'ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace' },
+  { id:'jetbrains',  name:'JetBrains Mono',  stack:'"JetBrains Mono",ui-monospace,Consolas,monospace', g:'JetBrains+Mono:wght@400;500;700' },
+  { id:'fira',       name:'Fira Code',       stack:'"Fira Code",ui-monospace,Consolas,monospace', g:'Fira+Code:wght@400;500' },
+  { id:'plexmono',   name:'IBM Plex Mono',   stack:'"IBM Plex Mono",ui-monospace,Consolas,monospace', g:'IBM+Plex+Mono:wght@400;500' },
+  { id:'sourcecode', name:'Source Code Pro', stack:'"Source Code Pro",ui-monospace,Consolas,monospace', g:'Source+Code+Pro:wght@400;500' },
+  { id:'spacemono',  name:'Space Mono',      stack:'"Space Mono",ui-monospace,Consolas,monospace', g:'Space+Mono:wght@400;700' },
+  { id:'courier',    name:'Courier New',     stack:'"Courier New",Courier,monospace' }
+];
+const DISPLAY_FONTS = [{ id:'match', name:'Match interface font' }].concat(UI_FONTS.filter(f => f.id !== 'system'));
+
+const MOTION = {
+  subtle: { fast:.10, med:.15, slow:.22, rise:4 },
+  normal: { fast:.18, med:.26, slow:.40, rise:8 },
+  playful:{ fast:.26, med:.42, slow:.62, rise:15 }
+};
+
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+function rgbToHex(c){ return '#' + c.map(v => Math.round(v).toString(16).padStart(2,'0')).join(''); }
+function mixHex(a, b, t){
+  const A = hexToRgb(a), B = hexToRgb(b); t = clamp01(t);
+  return rgbToHex(A.map((v,i) => v + (B[i]-v)*t));
+}
+/* perceived brightness — decides whether text on this colour should be dark or light */
+function luminance(hex){ const [r,g,b] = hexToRgb(hex); return (0.299*r + 0.587*g + 0.114*b) / 255; }
+function readableOn(hex){ return luminance(hex) > 0.6 ? '#141312' : '#ffffff'; }
+/* pulls an rgba() border colour toward the accent while keeping its alpha */
+function tintRgba(str, hex, t, alphaBoost){
+  const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?\s*\)/.exec(str);
+  if(!m) return str;
+  const base = [+m[1], +m[2], +m[3]];
+  const a = m[4] === undefined ? 1 : +m[4];
+  const acc = hexToRgb(hex);
+  const c = base.map((v,i) => Math.round(v + (acc[i]-v)*clamp01(t)));
+  return `rgba(${c[0]},${c[1]},${c[2]},${Math.min(1, a*alphaBoost).toFixed(3)})`;
+}
+
+let loadedFontKey = '';
+function ensureWebFonts(fonts){
+  const fams = [...new Set(fonts.map(f => f && f.g).filter(Boolean))].sort();
+  const key = fams.join('|');
+  if(key === loadedFontKey) return;
+  loadedFontKey = key;
+  let link = document.getElementById('dynFonts');
+  if(!fams.length){ if(link) link.remove(); return; }
+  if(!link){
+    link = document.createElement('link');
+    link.id = 'dynFonts'; link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }
+  link.href = 'https://fonts.googleapis.com/css2?' + fams.map(f => 'family=' + f).join('&') + '&display=swap';
+}
+
 const DEFAULT_USER_AVATAR = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:60%;height:60%;color:var(--user)"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
 const DEFAULT_AI_AVATAR = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:60%;height:60%;color:var(--accent)"><path d="M12 3v4M12 17v4M3 12h4M17 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>';
 const EFFORT_LEVELS = ['off','minimal','low','medium','high','extra high','max','ultra'];
@@ -867,36 +1147,95 @@ function loadSettings(){
 }
 function saveSettings(){
   localStorage.setItem('sr_settings', JSON.stringify(settings));
-  applyAccent(); applyLayout();
+  applyAppearance(); applyLayout();
 }
 function loadConversations(){
   try{ return JSON.parse(localStorage.getItem('sr_conversations')) || []; }catch(e){ return []; }
 }
 function saveConversations(){ localStorage.setItem('sr_conversations', JSON.stringify(conversations)); }
 
-function applyAccent(){
-  const themeId = settings.theme || 'midnight';
-  const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+function currentTheme(){ return THEMES.find(t => t.id === (settings.theme || 'midnight')) || THEMES[0]; }
+function currentAccent(){ return settings.accent || currentTheme().accent || ACCENTS[0]; }
+function currentSecondary(){
+  if(settings.harmonize) return shiftHue(currentAccent(), 150);
+  return settings.secondary || currentTheme().user || '#5ecbb0';
+}
+function animEnabled(){
+  if(settings.animations !== undefined) return !!settings.animations;
+  // first run: follow whatever the OS asks for
+  return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function applyAppearance(){
+  const theme = currentTheme();
   const root = document.documentElement.style;
-  root.setProperty('--bg', theme.bg);
-  root.setProperty('--panel', theme.panel);
-  root.setProperty('--panel-alt', theme.panelAlt);
-  root.setProperty('--panel-alt2', theme.panelAlt2);
+  const accent = currentAccent();
+  const tint = clamp01((settings.tint ?? 0) / 100);
+
+  // surfaces get pulled toward the accent by the tint slider
+  const bg        = mixHex(theme.bg,        accent, tint * 0.13);
+  const panel     = mixHex(theme.panel,     accent, tint * 0.16);
+  const panelAlt  = mixHex(theme.panelAlt,  accent, tint * 0.19);
+  const panelAlt2 = mixHex(theme.panelAlt2, accent, tint * 0.23);
+  root.setProperty('--bg', bg);
+  root.setProperty('--panel', panel);
+  root.setProperty('--panel-alt', panelAlt);
+  root.setProperty('--panel-alt2', panelAlt2);
   root.setProperty('--text', theme.text);
-  root.setProperty('--muted', theme.muted);
-  root.setProperty('--border', theme.border);
+  root.setProperty('--muted', mixHex(theme.muted, accent, tint * 0.35));
+  root.setProperty('--border', tintRgba(theme.border, accent, tint * 0.5, 1 + tint * 0.45));
+  root.setProperty('--scrim', hexA(bg, 0.86));
+  root.setProperty('--overlay', theme.scheme === 'light' ? 'rgba(40,34,30,.42)' : 'rgba(0,0,0,.55)');
   document.documentElement.style.colorScheme = theme.scheme;
-  root.setProperty('--font-scale', settings.fontSize || 1);
-  document.body.classList.toggle('compact', !!settings.compact);
-  const accent = settings.accent || ACCENTS[0];
+
+  // accent, and every colour derived from it
   root.setProperty('--accent', accent);
   root.setProperty('--accent-dim', hexA(accent, 0.78));
-  const gradId = settings.gradient || 'none';
-  const grad = GRADIENTS.find(g => g.id === gradId);
+  root.setProperty('--accent-soft', hexA(accent, 0.10));
+  root.setProperty('--accent-softer', hexA(accent, 0.15));
+  root.setProperty('--accent-line', hexA(accent, 0.24));
+  root.setProperty('--on-accent', readableOn(accent));
+  // .primary sits on accent-dim composited over the panel, so test that blend
+  root.setProperty('--on-accent-dim', readableOn(mixHex(panel, accent, 0.78)));
+
+  const secondary = currentSecondary();
+  root.setProperty('--user', secondary);
+  root.setProperty('--on-user', readableOn(secondary));
+
+  let warn = settings.harmonize ? shiftHue(accent, 42) : '#f5a623';
+  if(theme.scheme === 'light') warn = mixHex(warn, '#000000', 0.30);
+  root.setProperty('--warn', warn);
+  root.setProperty('--err', theme.scheme === 'light' ? '#c0392b' : '#ff6b6b');
+
+  // typography
+  root.setProperty('--font-scale', settings.fontSize || 1);
+  root.setProperty('--code-scale', (settings.codeScale ?? 100) / 100);
+  const ui   = UI_FONTS.find(f => f.id === (settings.fontUi || 'system')) || UI_FONTS[0];
+  const mono = MONO_FONTS.find(f => f.id === (settings.fontMono || 'system')) || MONO_FONTS[0];
+  const dispId = settings.fontDisplay || 'grotesk';
+  const disp = dispId === 'match' ? ui : (UI_FONTS.find(f => f.id === dispId) || UI_FONTS[2]);
+  root.setProperty('--font-ui', ui.stack);
+  root.setProperty('--font-mono', mono.stack);
+  root.setProperty('--font-display', disp.stack);
+  ensureWebFonts([ui, mono, disp]);
+
+  document.body.classList.toggle('compact', !!settings.compact);
+  document.body.classList.toggle('sidebar-collapsed', !!settings.sidebarCollapsed);
+
+  // motion
+  document.body.classList.toggle('no-anim', !animEnabled());
+  const m = MOTION[settings.animSpeed] || MOTION.normal;
+  root.setProperty('--anim', m.fast + 's');
+  root.setProperty('--anim-med', m.med + 's');
+  root.setProperty('--anim-slow', m.slow + 's');
+  root.setProperty('--anim-rise', m.rise + 'px');
+
+  // background gradient, built off the tinted background
+  const grad = GRADIENTS.find(g => g.id === (settings.gradient || 'none'));
   const strength = (settings.gradientStrength ?? 100) / 100;
   if(grad && grad.css && strength > 0){
     const boosted = hexA(accent, Math.min(1, 0.30 * strength));
-    root.setProperty('--bg-gradient', grad.css(accent, theme.bg).replace(/rgba\([^,]+,[^,]+,[^,]+,[\d.]+\)/, boosted));
+    root.setProperty('--bg-gradient', grad.css(accent, bg).replace(/rgba\([^,]+,[^,]+,[^,]+,[\d.]+\)/, boosted));
   } else {
     root.setProperty('--bg-gradient', 'none');
   }
@@ -1860,6 +2199,10 @@ function openSettings(){
   renderThemeGrid();
   renderGradGrid();
   renderFontSizeRow();
+  renderColorSpread();
+  renderFontControls();
+  renderMotionControls();
+  renderSidebarToggleSetting();
   renderCompactToggle();
   $('gradStrength').value = settings.gradientStrength ?? 100;
   $('gradStrengthVal').textContent = ($('gradStrength').value) + '%';
@@ -1921,48 +2264,52 @@ function renderThemeGrid(){
     const card = document.createElement('div');
     card.className = 'theme-card' + ((settings.theme||'midnight')===t.id ? ' active':'');
     card.innerHTML = `<div class="swatches"><div class="sw" style="background:${t.bg}"></div><div class="sw" style="background:${t.panel}"></div><div class="sw" style="background:${t.panelAlt2}"></div></div><div class="name">${t.name}</div>`;
-    card.addEventListener('click', () => { settings.theme = t.id; settings.accent = t.accent; applyAccent(); renderThemeGrid(); renderGradGrid(); renderAccentSwatches(); renderAccentPicker(); });
+    card.addEventListener('click', () => {
+      settings.theme = t.id; settings.accent = t.accent;
+      applyAppearance();
+      renderThemeGrid(); renderGradGrid(); renderAccentSwatches(); renderAccentPicker(); renderColorSpread();
+    });
     grid.appendChild(card);
   });
 }
 function renderGradGrid(){
   const grid = $('gradGrid'); grid.innerHTML = '';
-  const accent = settings.accent || ACCENTS[0];
+  const accent = currentAccent();
   GRADIENTS.forEach(g => {
     const card = document.createElement('div');
     card.className = 'grad-card' + ((settings.gradient||'none')===g.id ? ' active':'');
     const bg = g.css ? g.css(accent) : 'none';
     card.innerHTML = `<div class="prev" style="background-image:${bg}"></div><div class="name">${g.name}</div>`;
-    card.addEventListener('click', () => { settings.gradient = g.id; applyAccent(); renderGradGrid(); });
+    card.addEventListener('click', () => { settings.gradient = g.id; applyAppearance(); renderGradGrid(); });
     grid.appendChild(card);
   });
 }
 function renderAccentPicker(){
-  const accent = settings.accent || ACCENTS[0];
+  const accent = currentAccent();
   $('accentPicker').value = accent;
   $('accentHex').value = accent;
 }
 $('accentPicker').addEventListener('input', () => {
   settings.accent = $('accentPicker').value;
   $('accentHex').value = settings.accent;
-  applyAccent(); renderAccentSwatches(); renderGradGrid();
+  applyAppearance(); renderAccentSwatches(); renderGradGrid();
 });
 $('accentHex').addEventListener('input', () => {
   let v = $('accentHex').value.trim();
   if(!v.startsWith('#')) v = '#'+v;
   if(/^#[0-9a-fA-F]{6}$/.test(v)){
     settings.accent = v; $('accentPicker').value = v;
-    applyAccent(); renderAccentSwatches(); renderGradGrid();
+    applyAppearance(); renderAccentSwatches(); renderGradGrid();
   }
 });
 $('accentReset').addEventListener('click', () => {
   delete settings.accent;
-  applyAccent(); renderAccentSwatches(); renderAccentPicker(); renderGradGrid();
+  applyAppearance(); renderAccentSwatches(); renderAccentPicker(); renderGradGrid(); renderColorSpread();
 });
 $('gradStrength').addEventListener('input', () => {
   settings.gradientStrength = parseInt($('gradStrength').value, 10);
   $('gradStrengthVal').textContent = settings.gradientStrength + '%';
-  applyAccent();
+  applyAppearance();
 });
 function renderLayoutChoice(){
   document.querySelectorAll('.layout-choice').forEach(el => {
@@ -1980,7 +2327,7 @@ function renderFontSizeRow(){
 document.querySelectorAll('#fontSizeRow .seg-btn').forEach(el => {
   el.addEventListener('click', () => {
     settings.fontSize = parseFloat(el.dataset.size);
-    applyAccent(); renderFontSizeRow();
+    applyAppearance(); renderFontSizeRow();
   });
 });
 function renderCompactToggle(){
@@ -1988,8 +2335,113 @@ function renderCompactToggle(){
 }
 $('compactToggle').addEventListener('click', () => {
   settings.compact = !settings.compact;
-  applyAccent(); renderCompactToggle();
+  applyAppearance(); renderCompactToggle();
 });
+/* ---------- accent spread ---------- */
+function renderColorSpread(){
+  $('tintStrength').value = settings.tint ?? 0;
+  $('tintStrengthVal').textContent = ($('tintStrength').value) + '%';
+  $('harmonizeToggle').classList.toggle('on', !!settings.harmonize);
+  $('secondaryRow').style.display = settings.harmonize ? 'none' : 'flex';
+  const sec = currentSecondary();
+  $('secondaryPicker').value = sec;
+  $('secondaryHex').value = sec;
+}
+$('tintStrength').addEventListener('input', () => {
+  settings.tint = parseInt($('tintStrength').value, 10);
+  $('tintStrengthVal').textContent = settings.tint + '%';
+  applyAppearance();
+});
+$('harmonizeToggle').addEventListener('click', () => {
+  settings.harmonize = !settings.harmonize;
+  applyAppearance(); renderColorSpread();
+});
+$('secondaryPicker').addEventListener('input', () => {
+  settings.secondary = $('secondaryPicker').value;
+  $('secondaryHex').value = settings.secondary;
+  applyAppearance();
+});
+$('secondaryHex').addEventListener('input', () => {
+  const v = $('secondaryHex').value.trim();
+  if(/^#[0-9a-fA-F]{6}$/.test(v)){
+    settings.secondary = v;
+    $('secondaryPicker').value = v;
+    applyAppearance();
+  }
+});
+$('secondaryReset').addEventListener('click', () => {
+  delete settings.secondary;
+  applyAppearance(); renderColorSpread();
+});
+
+/* ---------- fonts ---------- */
+function populateFontSelect(el, list, value){
+  el.innerHTML = list.map(f => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
+  el.value = value;
+}
+function renderFontControls(){
+  populateFontSelect($('fontUiSel'), UI_FONTS, settings.fontUi || 'system');
+  populateFontSelect($('fontDisplaySel'), DISPLAY_FONTS, settings.fontDisplay || 'grotesk');
+  populateFontSelect($('fontMonoSel'), MONO_FONTS, settings.fontMono || 'system');
+  $('codeScale').value = settings.codeScale ?? 100;
+  $('codeScaleVal').textContent = ($('codeScale').value) + '%';
+}
+$('fontUiSel').addEventListener('change', () => { settings.fontUi = $('fontUiSel').value; applyAppearance(); });
+$('fontDisplaySel').addEventListener('change', () => { settings.fontDisplay = $('fontDisplaySel').value; applyAppearance(); });
+$('fontMonoSel').addEventListener('change', () => { settings.fontMono = $('fontMonoSel').value; applyAppearance(); });
+$('codeScale').addEventListener('input', () => {
+  settings.codeScale = parseInt($('codeScale').value, 10);
+  $('codeScaleVal').textContent = settings.codeScale + '%';
+  applyAppearance();
+});
+$('fontsReset').addEventListener('click', () => {
+  delete settings.fontUi; delete settings.fontDisplay;
+  delete settings.fontMono; delete settings.codeScale;
+  applyAppearance(); renderFontControls();
+});
+
+/* ---------- motion ---------- */
+function renderMotionControls(){
+  const on = animEnabled();
+  $('animToggle').classList.toggle('on', on);
+  const speed = settings.animSpeed || 'normal';
+  document.querySelectorAll('#animSpeedRow .seg-btn').forEach(el => {
+    el.classList.toggle('active', el.dataset.speed === speed);
+  });
+  $('animSpeedRow').style.opacity = on ? '' : '.4';
+  $('animSpeedRow').style.pointerEvents = on ? '' : 'none';
+}
+$('animToggle').addEventListener('click', () => {
+  settings.animations = !animEnabled();
+  applyAppearance(); renderMotionControls();
+});
+document.querySelectorAll('#animSpeedRow .seg-btn').forEach(el => {
+  el.addEventListener('click', () => {
+    settings.animSpeed = el.dataset.speed;
+    applyAppearance(); renderMotionControls();
+  });
+});
+
+/* ---------- sidebar collapse ---------- */
+function setSidebarCollapsed(v){
+  settings.sidebarCollapsed = !!v;
+  saveSettings();            // applies the body class via applyAppearance()
+  renderSidebarToggleSetting();
+}
+function renderSidebarToggleSetting(){
+  $('sidebarToggleSetting').classList.toggle('on', !!settings.sidebarCollapsed);
+}
+$('sidebarToggle').addEventListener('click', () => setSidebarCollapsed(true));
+$('sidebarOpen').addEventListener('click', () => setSidebarCollapsed(false));
+$('sidebarScrim').addEventListener('click', () => setSidebarCollapsed(true));
+$('sidebarToggleSetting').addEventListener('click', () => setSidebarCollapsed(!settings.sidebarCollapsed));
+document.addEventListener('keydown', (e) => {
+  if((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'b' || e.key === 'B')){
+    e.preventDefault();
+    setSidebarCollapsed(!settings.sidebarCollapsed);
+  }
+});
+
 function renderMetaToggle(){
   $('metaToggle').classList.toggle('on', pendingShowMeta);
 }
@@ -2037,7 +2489,8 @@ inputEl.addEventListener('input', () => {
   $('inputCount').textContent = String(wordCount(inputEl.value));
 });
 
-applyAccent();
+if(settings.sidebarCollapsed === undefined && window.innerWidth <= 720) settings.sidebarCollapsed = true;
+applyAppearance();
 applyLayout();
 if(conversations.length === 0) newConversation();
 else { renderConvoList(); renderMessages(); }
