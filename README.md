@@ -10,6 +10,23 @@ The backend is a single Node file with **zero npm dependencies**: no `package.js
 
 ---
 
+## Quick start
+
+You need **Node.js 18 or newer** (`node --version`) and nothing else.
+
+```bash
+git clone https://github.com/FearedFusionX/subrouter-web-chat.git
+cd subrouter-web-chat
+cp config.example.json config.json      # then edit it: your base_url and api_key
+node server.js
+```
+
+Open <http://localhost:8787> and pick a model from the dropdown at the bottom right.
+
+Stop the server with `Ctrl+C`. To start it again later, `node server.js` from the project folder is the whole ritual — there is nothing to install, build or update. See [Setup](#setup) for the details.
+
+---
+
 ## How it fits together
 
 ```
@@ -42,13 +59,24 @@ Why is there a local server at all, instead of the page calling the API directly
 
 ## Setup
 
-**1. You need Node.js 18 or newer.** Check with `node --version`. There is nothing to install beyond that.
+**1. You need Node.js 18 or newer.** Check with `node --version`; if that fails or prints something older, install it from [nodejs.org](https://nodejs.org). There is nothing to install beyond that — no `npm install`, because there are no dependencies.
 
-**2. Create `config.json`** in the project root by copying the example:
+**2. Get the code.**
+
+```bash
+git clone https://github.com/FearedFusionX/subrouter-web-chat.git
+cd subrouter-web-chat
+```
+
+Downloading the ZIP from GitHub and unpacking it works just as well; nothing here needs git at runtime.
+
+**3. Create `config.json`** in the project root by copying the example:
 
 ```bash
 cp config.example.json config.json
 ```
+
+(In PowerShell, `cp` is an alias for `Copy-Item`, so the same line works.)
 
 Then edit it:
 
@@ -66,23 +94,31 @@ Then edit it:
 | `api_key` | Your token. Stays on this machine — see [Where your data lives](#where-your-data-lives). |
 | `mcpServers` | Optional. Tool servers to make available; easier to add from the UI, see [MCP tools](#mcp-tools-giving-the-model-hands). |
 
+The example file ships with a sample `filesystem` MCP server pointing at a placeholder path — either fix that path or cut `mcpServers` down to `{}`, as above, and add servers later from the UI.
+
 `config.json` is gitignored and must stay that way — it holds a real credential. `config.example.json` is the safe placeholder that *is* committed. The server re-reads the file on every request, so hand-edits take effect without a restart.
 
-**3. Run it:**
+**4. Start it:**
 
 ```bash
 node server.js
 ```
 
+It prints the URL and stays in the foreground; `Ctrl+C` stops it. Starting it again is the same command — there is no build, no install and nothing to update.
+
 Then open <http://localhost:8787>. `PORT` is the only environment variable:
 
 ```bash
-PORT=9000 node server.js
+PORT=9000 node server.js          # macOS / Linux / Git Bash
+```
+
+```powershell
+$env:PORT = 9000; node server.js  # PowerShell
 ```
 
 The server binds to `127.0.0.1` only, so it is not reachable from other machines on your network.
 
-**4. Pick a model** from the dropdown at the bottom right. If the list is empty, open **Settings → API → Test connection** — it will tell you whether the endpoint and token are working.
+**5. Pick a model** from the dropdown at the bottom right. If the list is empty, open **Settings → API → Test connection** — it will tell you whether the endpoint and token are working.
 
 ### Install it as an app
 
@@ -204,7 +240,7 @@ Everything the frontend does goes through these routes on `localhost` — no aut
 
 **Model list is empty.** Settings → API → Test connection. It reports the actual HTTP error, which is usually a wrong `base_url` (missing `/v1`, or `http://` instead of `https://`) or a bad token.
 
-**`EADDRINUSE` on start.** Port 8787 is already taken, often by an instance you already have running. Use that one, or start on another port with `PORT=9000 node server.js`.
+**`EADDRINUSE` on start.** Port 8787 is already taken, often by an instance you already have running. Use that one, or start on another port — `PORT=9000 node server.js`, or `$env:PORT = 9000; node server.js` in PowerShell.
 
 **An MCP server won't connect.** Its command has to be runnable from this machine — the `npx` presets need Node on your `PATH` and download the package on first run, so the first connect can be slow. MCP servers' own error output is not shown anywhere, so if a server keeps failing, try running its command by hand in a terminal to see what it prints.
 
