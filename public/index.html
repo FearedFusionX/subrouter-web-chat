@@ -262,8 +262,20 @@
     width:min(100%, 620px); border:1px solid var(--err); border-radius:calc(10px * var(--radius));
     background:var(--panel-alt); padding:14px 16px; box-shadow:inset 3px 0 0 var(--err);
   }
+  .error-card-head{ display:flex; align-items:center; gap:10px; }
   .error-card-title{ display:flex; align-items:center; gap:8px; color:var(--err); font-weight:700; font-family:var(--font-display); }
+  .error-card-badge{
+    display:inline-flex; align-items:center; justify-content:center; flex:none;
+    width:18px; height:18px; border-radius:50%; background:var(--err); color:var(--panel-alt);
+    font-size:12px; font-weight:800; line-height:1;
+  }
+  .error-card-status{
+    margin-left:auto; flex:none; padding:2px 7px; border-radius:999px;
+    background:color-mix(in srgb, var(--err) 16%, transparent);
+    color:var(--err); font-family:var(--font-mono); font-size:11px; letter-spacing:.02em;
+  }
   .error-card-message{ margin-top:7px; color:var(--text); line-height:1.45; }
+  .error-card-hint{ margin-top:6px; color:var(--muted); font-size:13px; line-height:1.45; }
   .error-card details{ margin-top:10px; color:var(--muted); font-size:12px; }
   .error-card summary{ cursor:pointer; }
   .error-detail{ margin-top:6px; font-family:var(--font-mono); white-space:pre-wrap; word-break:break-word; }
@@ -1727,13 +1739,43 @@ function normalizeChatError(value, status){
   if(requestId) error.request_id = String(requestId).slice(0, 160);
   return error;
 }
+/* The router writes its own error text, and it is usually the most useful
+   thing on screen ("back in 23h", "eva turned this model off"). So the card
+   leads with that message and keeps our generic advice as a secondary hint,
+   rather than discarding the specific text in favour of a canned line. */
+function chatErrorTitle(error){
+  if(error.type === 'network_error') return 'Can’t reach the router';
+  if(error.type === 'invalid_response') return 'Unreadable response';
+  if(error.status === 401) return 'Key rejected';
+  if(error.status === 403) return 'Model unavailable';
+  if(error.status === 404) return 'Model not found';
+  if(error.status === 408 || error.status === 504) return 'Router timed out';
+  if(error.status === 429) return 'Limit reached';
+  if(error.status >= 500) return 'Router problem';
+  return 'Reply failed';
+}
 function chatErrorCopy(error){
-  if(error.status === 401 || error.status === 403) return 'Authentication failed. Check the API key in Settings, then retry.';
-  if(error.status === 429) return 'The router is rate limiting requests. Wait a moment, then retry.';
-  if(error.type === 'network_error') return 'Could not reach the router. Check your connection and API settings.';
-  if(error.type === 'invalid_response') return 'The router returned a response the app could not read.';
-  if(error.status >= 500) return 'The router is temporarily unavailable. Please retry.';
-  return error.message;
+  const own = String(error.message || '').trim();
+  if(own && own !== 'The request failed.') return own;
+  return chatErrorHint(error) || 'The request failed.';
+}
+function chatErrorHint(error){
+  if(error.type === 'network_error') return 'Check that server.js is still running, then retry.';
+  if(error.type === 'invalid_response') return 'The router sent something this app could not parse.';
+  if(error.status === 401) return 'Check the API key in Settings → API.';
+  if(error.status === 403) return 'Your key can’t use this model right now — try another from the model picker.';
+  if(error.status === 404) return 'The router doesn’t recognise this model — pick another from the model picker.';
+  if(error.status === 429) return 'A rate or quota limit is in effect. Wait for it to reset, or switch models.';
+  if(error.status >= 500) return 'Something went wrong on the router’s side. Retrying often works.';
+  return '';
+}
+/* Errors predating the error-card UI were stored as plain assistant text
+   ("[Stream error: HTTP 403 — {...}]"). Recognise those at render time so old
+   conversations get the same card as new ones. */
+function legacyStreamError(content){
+  const m = /^\s*\[Stream error:\s*(?:HTTP\s*(\d{3})\s*[—–-]\s*)?([\s\S]*?)\]\s*$/.exec(String(content ?? ''));
+  if(!m) return null;
+  return normalizeChatError(m[2], Number(m[1]) || 0);
 }
 function chatErrorFromException(err){
   if(err?.chatError) return err.chatError;
@@ -2070,6 +2112,10 @@ function renderMessages(){
   for(const m of convo.messages){
     mi++;
     if(m.role === 'error_ui') { appendErrorDom(m); continue; }
+    if(m.role === 'assistant' && !m.steps?.length){
+      const legacyError = legacyStreamError(m.content);
+      if(legacyError) { appendErrorDom({ ...m, error: legacyError }); continue; }
+    }
     if(m.role === 'system_ui') { appendMsgDom('system', m.content).dataset.mi = mi; continue; }
     if(m.role === 'system') continue;
     const wrap = appendMsgDom(m.role, m.displayText ?? m.content, m.attachments, m.meta, m);
@@ -2171,17 +2217,28 @@ function appendErrorDom(message){
   if(error.code) details.push('Code: ' + error.code);
   if(error.param) details.push('Parameter: ' + error.param);
   if(error.request_id) details.push('Request ID: ' + error.request_id);
-  if(error.message && error.message !== chatErrorCopy(error)) details.push(error.message);
+  const copy = chatErrorCopy(error);
+  const hint = chatErrorHint(error);
+  if(error.message && error.message !== copy) details.push(error.message);
+  /* Errors recovered from old plain-text messages have no turn to replay, so
+     only offer the recovery buttons when the originating user message survives. */
+  const canRecover = !!(message.turnId && activeConvo()?.messages.some(m => m.role === 'user' && m.turnId === message.turnId));
   const wrap = document.createElement('div');
   wrap.className = 'msg error-ui';
   wrap.innerHTML = `<div class="msg-body"><div class="error-card" role="alert" aria-live="assertive">
-    <div class="error-card-title"><span aria-hidden="true">!</span> Reply failed</div>
-    <div class="error-card-message">${escapeHtml(chatErrorCopy(error))}</div>
+    <div class="error-card-head">
+      <span class="error-card-title"><span class="error-card-badge" aria-hidden="true">!</span> ${escapeHtml(chatErrorTitle(error))}</span>
+      ${error.status ? `<span class="error-card-status">HTTP ${escapeHtml(String(error.status))}</span>` : ''}
+    </div>
+    <div class="error-card-message">${escapeHtml(copy)}</div>
+    ${hint && hint !== copy ? `<div class="error-card-hint">${escapeHtml(hint)}</div>` : ''}
     ${details.length ? `<details><summary>Technical details</summary><div class="error-detail">${escapeHtml(details.join('\n'))}</div></details>` : ''}
-    <div class="error-actions"><button class="primary error-retry">Retry</button><button class="error-edit">Edit message</button></div>
+    ${canRecover ? `<div class="error-actions"><button class="primary error-retry">Retry</button><button class="error-edit">Edit message</button></div>` : ''}
   </div></div>`;
-  wrap.querySelector('.error-retry').addEventListener('click', () => retryTurn(message.turnId));
-  wrap.querySelector('.error-edit').addEventListener('click', () => editTurn(message.turnId));
+  if(canRecover){
+    wrap.querySelector('.error-retry').addEventListener('click', () => retryTurn(message.turnId));
+    wrap.querySelector('.error-edit').addEventListener('click', () => editTurn(message.turnId));
+  }
   messagesEl.appendChild(wrap);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return wrap;
