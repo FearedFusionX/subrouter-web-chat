@@ -317,6 +317,69 @@
   .about-key{ flex:none; width:110px; color:var(--muted); }
   .about-val{ min-width:0; color:var(--text); word-break:break-word; }
   .about-val a{ color:var(--accent); }
+  .usage-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .usage-refresh{ flex:none; padding:6px 12px; font-size:12px; }
+  .usage-status{ margin-top:10px; color:var(--muted); font-size:12.5px; }
+  .usage-status.err{ color:var(--err); }
+  .usage-pool{ padding:10px 0; border-bottom:1px solid var(--border); }
+  .usage-pool:last-child{ border-bottom:none; }
+  .usage-pool-top{ display:flex; align-items:baseline; gap:8px; font-size:13px; margin-bottom:7px; }
+  .usage-pool-name{ font-weight:600; }
+  .usage-pool-win{ color:var(--muted); font-family:var(--font-mono); font-size:11.5px; }
+  .usage-pool-pct{ margin-left:auto; font-family:var(--font-mono); font-size:12px; }
+  .usage-chip{ flex:none; font-size:10.5px; padding:1px 7px; border-radius:999px; background:var(--accent-softer); color:var(--accent); }
+  .usage-bar{ height:6px; border-radius:calc(6px * var(--radius)); background:var(--panel-alt2); overflow:hidden; }
+  .usage-bar > i{ display:block; height:100%; border-radius:inherit; background:var(--accent); transition:width var(--anim) var(--ease); }
+  .usage-pool.warn .usage-bar > i{ background:var(--warn); }
+  .usage-pool.hot .usage-bar > i{ background:var(--err); }
+  .usage-pool-foot{ margin-top:5px; color:var(--muted); font-size:11.5px; }
+
+  /* turn separators: time gaps and model/effort switches */
+  .turn-sep{ display:flex; align-items:center; gap:10px; margin:16px 2px 12px; }
+  .turn-sep-line{ flex:1; height:1px; background:var(--border); }
+  .turn-sep-label{
+    flex:none; white-space:nowrap; color:var(--muted);
+    font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em;
+  }
+
+  /* reasoning ("thinking"), shown only when a model actually returns it.
+     The header is bare text; only the body sits in a box. */
+  .reasoning-block{ margin:0 0 10px; }
+  .reasoning-block summary::-webkit-details-marker{ display:none; }
+  .think-chev{ font-size:11px; color:var(--muted); flex:none;
+    transition:transform var(--anim) var(--ease); }
+  details[open] > summary .think-chev{ transform:rotate(180deg); }
+  .think-head{
+    display:flex; align-items:center; gap:6px; cursor:pointer; list-style:none;
+    padding:2px 0; color:var(--muted); font-size:13px;
+  }
+  .think-head:hover{ color:var(--text); }
+  .think-body{
+    margin-top:8px; padding:11px 13px; overflow:auto;
+    max-height:var(--step-max-h);
+    border:1px solid var(--border); border-radius:calc(10px * var(--radius));
+    background:var(--panel-alt);
+  }
+  .think-stream{
+    white-space:pre-wrap; word-break:break-word;
+    color:var(--muted); font-size:12.5px; line-height:1.55;
+  }
+  .think-sec + .think-sec, .think-line + .think-line,
+  .think-sec + .think-line, .think-line + .think-sec{ margin-top:9px; }
+  .think-sec > summary{
+    display:flex; align-items:flex-start; gap:6px; cursor:pointer; list-style:none;
+    color:var(--muted); font-size:12.5px; line-height:1.5;
+  }
+  .think-sec > summary:hover{ color:var(--text); }
+  .think-sec-title{ flex:1; min-width:0; }
+  .think-sec-body{
+    margin-top:7px; white-space:pre-wrap; word-break:break-word;
+    color:var(--text); font-size:12.5px; line-height:1.6;
+  }
+  .think-line{
+    white-space:pre-wrap; word-break:break-word;
+    color:var(--text); font-size:12.5px; line-height:1.6;
+  }
 
   /* thinking dots */
   .thinking-dots{ display:inline-flex; gap:4px; padding:6px 0; }
@@ -494,6 +557,25 @@
   .icon-btn:hover{ color:var(--text); border-color:var(--accent-dim); }
   #fileInput{ display:none; }
   .composer-count{ font-size:11px; color:var(--muted); }
+  /* Metrics deliberately match .cdrop-btn — this sits between the count and the
+     two dropdowns, so anything else reads as bolted on. The dial is drawn with
+     currentColor, which means the warn/hot states tint it for free. */
+  .usage-mini{
+    display:flex; align-items:center; gap:7px; flex:none; cursor:pointer;
+    background:transparent; border:1px solid var(--border); border-radius:8px;
+    padding:5px 10px; font-size:12.5px; line-height:1; white-space:nowrap;
+    color:var(--accent);
+  }
+  .usage-mini:hover{ border-color:var(--accent-dim); }
+  .usage-mini-dial{
+    width:12px; height:12px; border-radius:50%; flex:none;
+    background:conic-gradient(currentColor calc(var(--usage-p, 0) * 1%), var(--panel-alt2) 0);
+  }
+  .usage-mini-pct{ color:var(--text); font-family:var(--font-mono); font-size:11.5px; }
+  .usage-mini-win{ color:var(--muted); font-size:11px; }
+  .usage-mini.warn{ color:var(--warn); border-color:var(--warn); }
+  .usage-mini.hot{ color:var(--err); border-color:var(--err); }
+  .usage-mini.hot .usage-mini-pct{ color:var(--err); }
 
   .composer-send{
     position:absolute; top:10px; right:10px; z-index:1;
@@ -786,7 +868,7 @@
     width:max-content; max-width:min(280px, calc(100vw - 24px));
     background:var(--panel-alt2); border:1px solid var(--border); color:var(--text);
     font-family:var(--font-ui); font-size:11.5px; font-weight:400; line-height:1.45;
-    letter-spacing:0; text-transform:none; text-align:left; white-space:normal;
+    letter-spacing:0; text-transform:none; text-align:left; white-space:pre-line;
     padding:6px 10px; border-radius:calc(6px * var(--radius));
     box-shadow:0 8px 22px rgba(0,0,0,.4);
   }
@@ -952,6 +1034,12 @@
       <div class="composer-right">
         <span id="inputCount" class="composer-count">0</span>
 
+        <button id="usageMini" class="usage-mini" style="display:none;" data-tip="Usage">
+          <span class="usage-mini-dial"></span>
+          <span class="usage-mini-pct">—</span>
+          <span class="usage-mini-win"></span>
+        </button>
+
         <div class="cdrop" id="effortDropdown">
           <button class="cdrop-btn" id="effortDropdownBtn">
             <span class="label" id="effortDropdownLabel">Off</span>
@@ -997,6 +1085,7 @@
         <div class="modal-nav-item" data-page="appearance"><span class="ic">◐</span>Appearance</div>
         <div class="modal-nav-item" data-page="skills"><span class="ic">✦</span>Skills</div>
         <div class="modal-nav-item" data-page="api"><span class="ic">⚿</span>API</div>
+        <div class="modal-nav-item" data-page="usage"><span class="ic">◔</span>Usage</div>
         <div class="modal-nav-item" data-page="mcp"><span class="ic">⛓</span>MCP</div>
         <div class="modal-nav-item" data-page="data"><span class="ic">⇅</span>Data</div>
         <div class="modal-nav-item" data-page="about"><span class="ic">◈</span>About</div>
@@ -1322,6 +1411,32 @@
         </div>
       </div>
 
+      <div class="modal-page" data-content="usage" style="display:none;">
+        <div class="modal-page-title">Usage</div>
+        <div class="modal-section">
+          <div class="usage-head">
+            <div class="mcp-hint" style="margin:0;">Live figures from your router's <code class="inline">/usage</code> endpoint.</div>
+            <button id="usageRefresh" class="ghost usage-refresh">Refresh</button>
+          </div>
+          <div id="usageStatus" class="usage-status">Loading…</div>
+        </div>
+        <div id="usageBody" style="display:none;">
+          <hr class="modal-hr" />
+          <div class="modal-section">
+            <div class="modal-section-title">Your key</div>
+            <div class="about-row"><span class="about-key">Requests / min</span><span class="about-val" id="usageRpm">—</span></div>
+            <div class="about-row"><span class="about-key">Tokens today</span><span class="about-val" id="usageToday">—</span></div>
+            <div class="about-row"><span class="about-key">Daily cap</span><span class="about-val" id="usageCap">—</span></div>
+            <div class="about-row"><span class="about-key">Resets</span><span class="about-val" id="usageReset">—</span></div>
+          </div>
+          <hr class="modal-hr" />
+          <div class="modal-section">
+            <div class="modal-section-title">Shared pools</div>
+            <div class="mcp-hint">Capacity shared across everyone on the router, not just your key — a pool near 100% means that provider is busy for all users.</div>
+            <div id="usagePools"></div>
+          </div>
+        </div>
+      </div>
       <div class="modal-page" data-content="mcp" style="display:none;">
         <div class="modal-page-title">MCP</div>
         <div class="mcp-hint">
@@ -1409,7 +1524,7 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const messagesEl = $('messages'), inputEl = $('input'), statusDot = $('statusDot');
 
 const ACCENTS = ['#93b0ff','#5ecbb0','#f5a623','#ff6b9d','#c19aff'];
@@ -1861,11 +1976,47 @@ let lastRenderedConvo = null;
 function isNearBottom(px = SCROLL_STICK_PX){
   return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight <= px;
 }
-function scrollMessagesToBottom(smooth){
-  messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
-  stickToBottom = true;
+/* Landing at the bottom is not a single scroll — layout keeps settling after
+   it: the streaming action bar appears and shrinks the viewport, the meta
+   footer is appended when the turn ends, images decode, web fonts swap. Each
+   would leave the view short. So assign scrollTop (the browser clamps it to
+   the true maximum), repeat once the frame has been laid out, and let a
+   ResizeObserver re-pin on any later size change. */
+let pinning = 0;
+function pinToBottom(){
+  messagesEl.scrollTop = messagesEl.scrollHeight;
   updateScrollButton();
+  pinning++;
+  requestAnimationFrame(() => {
+    pinning--;
+    if(stickToBottom){
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      updateScrollButton();
+    }
+  });
 }
+function scrollMessagesToBottom(smooth){
+  stickToBottom = true;
+  if(smooth){
+    /* Mid-flight smooth-scroll events must not read as "the user scrolled up". */
+    pinning++;
+    messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+    updateScrollButton();
+    setTimeout(() => { pinning--; if(stickToBottom) pinToBottom(); }, 400);
+    return;
+  }
+  pinToBottom();
+}
+const bottomObserver = new ResizeObserver(() => { if(stickToBottom) pinToBottom(); });
+bottomObserver.observe(messagesEl);
+/* Children are rebuilt on every render, so re-target rather than accumulate
+   observations on detached nodes. */
+function watchBottom(){
+  bottomObserver.disconnect();
+  bottomObserver.observe(messagesEl);
+  if(messagesEl.lastElementChild) bottomObserver.observe(messagesEl.lastElementChild);
+}
+function keepPinned(el){ if(el) bottomObserver.observe(el); }
 function updateScrollButton(){
   const btn = $('scrollBottomBtn');
   if(!btn) return;
@@ -1873,9 +2024,13 @@ function updateScrollButton(){
   btn.classList.toggle('show', scrollable && !isNearBottom(200));
 }
 messagesEl.addEventListener('scroll', () => {
-  stickToBottom = isNearBottom();
+  if(!pinning) stickToBottom = isNearBottom();
   updateScrollButton();
 }, { passive: true });
+/* Images finish decoding after they are inserted; load does not bubble. */
+messagesEl.addEventListener('load', (e) => {
+  if(stickToBottom && e.target.tagName === 'IMG') pinToBottom();
+}, true);
 window.addEventListener('resize', updateScrollButton);
 $('scrollBottomBtn').addEventListener('click', () => scrollMessagesToBottom(true));
 
@@ -2007,6 +2162,10 @@ function highlightCode(code){
 }
 function renderRichContent(text){
   checkOrdinal = 0;
+  /* A blank line becomes a literal <br> further down, so leading ones put a
+     gap above the first line of a reply. Strip them at the start of the
+     message only — blank lines between blocks are meaningful. */
+  text = String(text ?? '').replace(/^(?:[ \t]*\r?\n)+/, '');
   if(settings.markdown === false) return escapeHtml(text || '');
   const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
   let html = '';
@@ -2226,6 +2385,37 @@ function wireStepCard(div, onApprove, server, tool){
   }
 }
 
+/* ---------- turn separators ----------
+   Two things are worth marking in a transcript: coming back to a chat after a
+   real break, and changing what you are talking to. */
+const TURN_GAP_MS = 60 * 60 * 1000;
+/* Older messages predate the ts field, but turnId is "turn_<ms>_<rand>", so
+   the time is still recoverable and existing chats get gap markers too. */
+function msgTs(m){
+  if(typeof m.ts === 'number') return m.ts;
+  const t = /^turn_(\d+)_/.exec(String(m.turnId || ''));
+  return t ? Number(t[1]) : 0;
+}
+function gapLabel(prevTs, ts){
+  const mins = Math.round((ts - prevTs) / 60000);
+  const hrs = Math.round(mins / 60);
+  const rel = mins < 120 ? mins + ' minutes later'
+    : hrs < 48 ? hrs + ' hours later'
+    : Math.round(hrs / 24) + ' days later';
+  const d = new Date(ts);
+  const sameDay = new Date(prevTs).toDateString() === d.toDateString();
+  return rel + ' · ' + (sameDay ? timeStr(ts)
+    : d.toLocaleDateString([], { day:'numeric', month:'short' }) + ' ' + timeStr(ts));
+}
+function effortLabel(e){ return (!e || e === 'off') ? 'thinking off' : 'thinking ' + e; }
+function appendSeparator(label){
+  const el = document.createElement('div');
+  el.className = 'turn-sep';
+  el.innerHTML = '<span class="turn-sep-line"></span><span class="turn-sep-label"></span><span class="turn-sep-line"></span>';
+  el.querySelector('.turn-sep-label').textContent = label;
+  messagesEl.appendChild(el);
+}
+
 function renderMessages(){
   messagesEl.innerHTML = '';
   const convo = activeConvo();
@@ -2236,8 +2426,24 @@ function renderMessages(){
     return;
   }
   let mi = -1;
+  let prevTs = 0, prevModel = null, prevEffort = null;
   for(const m of convo.messages){
     mi++;
+    if(m.role === 'user'){
+      const ts = msgTs(m);
+      if(prevTs && ts && ts - prevTs >= TURN_GAP_MS) appendSeparator(gapLabel(prevTs, ts));
+      /* Only from the first turn that recorded its settings — an unknown
+         previous model is not a change worth announcing. */
+      if(m.model && prevModel && (m.model !== prevModel || m.effort !== prevEffort)){
+        const bits = [];
+        if(m.model !== prevModel) bits.push(m.model);
+        if(m.effort !== prevEffort) bits.push(effortLabel(m.effort));
+        appendSeparator(bits.join('  ·  '));
+      }
+      if(m.model){ prevModel = m.model; prevEffort = m.effort; }
+    }
+    const ts_ = msgTs(m);
+    if(ts_) prevTs = ts_;
     if(m.role === 'error_ui') { appendErrorDom(m); continue; }
     if(m.role === 'assistant' && !m.steps?.length){
       const legacyError = legacyStreamError(m.content);
@@ -2248,6 +2454,12 @@ function renderMessages(){
     if(m.role === 'system') continue;
     const wrap = appendMsgDom(m.role, m.displayText ?? m.content, m.attachments, m.meta, m);
     wrap.dataset.mi = mi;
+    if(m.reasoning){
+      const rEl = document.createElement('div');
+      rEl.className = 'reasoning-block';
+      wrap.querySelector('.msg-body').insertBefore(rEl, wrap.querySelector('.content'));
+      renderReasoning(rEl, m.reasoning, false, m.reasoningMs);
+    }
     if(m.steps && m.steps.length){
       const stepsEl = document.createElement('div');
       stepsEl.className = 'tool-steps';
@@ -2275,6 +2487,7 @@ function renderMessages(){
   /* Opening a different conversation lands on its newest message; re-rendering
      the one you are reading keeps the position you chose. */
   if(lastRenderedConvo !== convo){ lastRenderedConvo = convo; stickToBottom = true; }
+  watchBottom();
   if(stickToBottom) scrollMessagesToBottom(); else updateScrollButton();
 }
 
@@ -2303,6 +2516,79 @@ function wireCodeCopyButtons(wrap){
       setTimeout(() => btn.textContent = 'Copy', 1200);
     });
   });
+}
+
+/* Reasoning is split into collapsible sections: a paragraph opening with a
+   bold "**Header**" uses that as its summary, otherwise its first sentence
+   does, with the remainder as the body. A paragraph with nothing left over
+   stays a plain line rather than becoming an empty toggle. */
+function splitReasoningSections(text){
+  const out = [];
+  for(const para of String(text || '').split(/\n\s*\n/)){
+    const block = para.trim();
+    if(!block) continue;
+    const bold = /^\*\*(.+?)\*\*\s*([\s\S]*)$/.exec(block);
+    if(bold){ out.push({ summary: bold[1].trim(), body: bold[2].trim() }); continue; }
+    const sentence = /^([\s\S]*?[.!?])(\s+[\s\S]+)$/.exec(block);
+    let summary = sentence ? sentence[1].trim() : block;
+    let body = sentence ? sentence[2].trim() : '';
+    /* An overlong lead with no sentence break would swamp the summary line. */
+    if(summary.length > 120){ body = block; summary = summary.slice(0, 117).trimEnd() + '…'; }
+    out.push({ summary, body });
+  }
+  return out;
+}
+/* Reasoning is plain text, never markdown — textContent both escapes it and
+   preserves its own line breaks under white-space:pre-wrap. */
+function renderReasoning(el, text, streaming, ms){
+  if(!el) return;
+  const text_ = String(text || '');
+  if(!text_.trim()){ el.style.display = 'none'; return; }
+  el.style.display = '';
+  let root = el.querySelector('details.think');
+  if(!root){
+    el.innerHTML = '<details class="think"><summary class="think-head">' +
+      '<span class="think-title"></span><span class="think-chev">⌄</span></summary>' +
+      '<div class="think-body"></div></details>';
+    root = el.querySelector('details.think');
+    root.open = !!streaming;
+  }
+  const secs = Math.max(1, Math.round((ms || 0) / 1000));
+  el.querySelector('.think-title').textContent = streaming ? 'Thinking…' : 'Thought for ' + secs + 's';
+  const bodyEl = el.querySelector('.think-body');
+  /* While it streams the text simply flows; re-sectioning on every delta would
+     fight the reader by collapsing whatever they had opened. */
+  if(streaming){
+    let pre = bodyEl.querySelector('.think-stream');
+    if(!pre){
+      bodyEl.innerHTML = '';
+      pre = document.createElement('div');
+      pre.className = 'think-stream';
+      bodyEl.appendChild(pre);
+    }
+    pre.textContent = text_;
+    return;
+  }
+  bodyEl.innerHTML = '';
+  for(const s of splitReasoningSections(text_)){
+    if(!s.body){
+      const line = document.createElement('div');
+      line.className = 'think-line';
+      line.textContent = s.summary;
+      bodyEl.appendChild(line);
+      continue;
+    }
+    const sec = document.createElement('details');
+    sec.className = 'think-sec';
+    const sum = document.createElement('summary');
+    sum.innerHTML = '<span class="think-sec-title"></span><span class="think-chev">⌄</span>';
+    sum.querySelector('.think-sec-title').textContent = s.summary;
+    const sbody = document.createElement('div');
+    sbody.className = 'think-sec-body';
+    sbody.textContent = s.body;
+    sec.append(sum, sbody);
+    bodyEl.appendChild(sec);
+  }
 }
 
 function appendMsgDom(role, text, attachments, meta, msgObj){
@@ -2426,6 +2712,7 @@ function updateModelDropdown(){
   $('modelDropdownLabel').textContent = model || 'None selected';
   $('modelAvatarLetter').textContent = model ? model[0].toUpperCase() : '?';
   renderModelDropdownItems();
+  renderUsageMini();   // a different model can be governed by a different pool
 }
 function renderModelDropdownItems(){
   const el = $('modelDropdownItems');
@@ -2743,7 +3030,8 @@ async function actuallySend(convo, text, attachments){
   const userTs = Date.now();
   const userMeta = `${wordCount(displayText)} words · ${timeStr(userTs)}`;
   const turnId = 'turn_' + userTs + '_' + Math.random().toString(36).slice(2, 8);
-  const userMsg = { role: 'user', turnId, content: editText, editText, displayText, apiContent, attachments, meta: userMeta };
+  const userMsg = { role: 'user', turnId, content: editText, editText, displayText, apiContent, attachments,
+    meta: userMeta, ts: userTs, model: currentModel(), effort: currentEffort() };
   convo.messages.push(userMsg);
   saveConversations();
   renderConvoList();
@@ -2763,6 +3051,10 @@ async function requestTurn(convo, userMessage){
   const assistantWrap = appendMsgDom('assistant', '');
   const msgBody = assistantWrap.querySelector('.msg-body');
   const contentEl = assistantWrap.querySelector('.content');
+  const reasoningEl = document.createElement('div');
+  reasoningEl.className = 'reasoning-block';
+  reasoningEl.style.display = 'none';
+  msgBody.insertBefore(reasoningEl, contentEl);
   const stepsEl = document.createElement('div');
   stepsEl.className = 'tool-steps';
   msgBody.insertBefore(stepsEl, contentEl);
@@ -2779,6 +3071,8 @@ async function requestTurn(convo, userMessage){
     timerEl.classList.add('show');
   }, 100);
   let full = '';
+  let reasoning = '';
+  let reasonStart = null, reasonMs = 0;
   let firstToken = true;
   let currentStepDiv = null;
   const steps = [];
@@ -2871,7 +3165,20 @@ async function requestTurn(convo, userMessage){
       currentStepDiv = null;
       return;
     }
-    const delta = json.choices?.[0]?.delta?.content || '';
+    /* Reasoning has no single name across OpenAI-compatible providers, so all
+       three spellings are accepted. This router forwards none of them today
+       (verified against anthropic, openai and grok, streaming and not, at low
+       and high effort), so the block simply stays hidden until it does. */
+    const d0 = json.choices?.[0]?.delta || {};
+    const rdelta = d0.reasoning_content ?? d0.reasoning ?? d0.thinking ?? '';
+    if(rdelta){
+      if(reasonStart === null) reasonStart = Date.now();
+      reasonMs = Date.now() - reasonStart;
+      reasoning += rdelta;
+      renderReasoning(reasoningEl, reasoning, true, reasonMs);
+      if(settings.autoScroll !== false && stickToBottom) scrollMessagesToBottom();
+    }
+    const delta = d0.content || '';
     if(delta){
       if(firstToken){
         firstToken = false;
@@ -2880,6 +3187,7 @@ async function requestTurn(convo, userMessage){
       full += delta;
       contentEl.innerHTML = renderRichContent(full);
       showTypingCaret(contentEl);
+      keepPinned(contentEl);
       if(settings.autoScroll !== false && stickToBottom) scrollMessagesToBottom();
     }
   }
@@ -2937,6 +3245,10 @@ async function requestTurn(convo, userMessage){
     const totalMs = Date.now() - startedAt;
     const elapsed = (totalMs / 1000).toFixed(1);
     convo.totalMs = (convo.totalMs || 0) + totalMs;
+    /* Normalise once here so the stored copy, the word count and every later
+       re-render agree — stripping only at render time would leave the gap
+       baked into history. */
+    full = full.replace(/^(?:[ \t]*\r?\n)+/, '');
     const assistantMeta = `${model} · ${wordCount(full)} words · ${elapsed}s` +
       (ttft !== null ? ` · first token ${ttft}s` : '') + ` · ${timeStr()}`;
     let assistantMsg = null;
@@ -2949,6 +3261,10 @@ async function requestTurn(convo, userMessage){
     }else if(full || steps.length){
       assistantMsg = { role: 'assistant', turnId, content: full, apiContent: full, meta: assistantMeta, steps, incomplete: true };
     }
+    if(assistantMsg && reasoning.trim()){
+      assistantMsg.reasoning = reasoning;
+      assistantMsg.reasoningMs = reasonMs;
+    }
     if(assistantMsg) convo.messages.push(assistantMsg);
     if(outcome === 'failure') convo.messages.push({ role: 'error_ui', turnId, error: failure });
     convo.updatedAt = Date.now();
@@ -2959,6 +3275,7 @@ async function requestTurn(convo, userMessage){
     renderMessages();
     renderQueueStrip();
     renderStreamActions();
+    refreshUsageSoon();
     if(outcome === 'success'){
       maybeAutoTitle(convo);
       await drainQueue(convo);
@@ -3781,8 +4098,191 @@ document.querySelectorAll('.modal-nav-item').forEach(item => {
       p.style.display = p.dataset.content === page ? 'block' : 'none';
       p.querySelectorAll('.modal-section').forEach(sec => sec.style.display = '');
     });
+    if(page === 'usage') loadUsage();
   });
 });
+
+/* ---- Usage: this key's quota plus the router's shared pools -------------- */
+/* The router reports two time formats: user.resets_at is an ISO string,
+   pool.resets_at is a Unix timestamp in seconds. */
+function usageResetMs(v){
+  if(typeof v === 'number') return v > 1e11 ? v : v * 1000;
+  const t = Date.parse(v ?? '');
+  return Number.isNaN(t) ? 0 : t;
+}
+function usageUntil(ms){
+  if(!ms) return '';
+  const diff = ms - Date.now();
+  if(diff <= 0) return 'due now';
+  const mins = Math.round(diff / 60000);
+  if(mins < 60) return 'in ' + mins + 'm';
+  const hrs = diff / 3600000;
+  if(hrs < 24) return 'in ' + (Math.round(hrs * 10) / 10) + 'h';
+  return 'in ' + Math.round(hrs / 24) + 'd';
+}
+function usageNum(n){
+  if(typeof n !== 'number' || !isFinite(n)) return '—';
+  if(n >= 1e9) return (Math.round(n / 1e8) / 10) + 'B';
+  if(n >= 1e6) return (Math.round(n / 1e5) / 10) + 'M';
+  if(n >= 1e4) return (Math.round(n / 100) / 10) + 'k';
+  return n.toLocaleString();
+}
+let usageData = null;
+
+/* Model ids are "provider/name" and pools are keyed by that same provider, so
+   the pool governing the current model can be identified. A window can also
+   name a model family ("Fable 7d") — that pool is a slice of the provider's
+   capacity, so it only counts when the current model is in that family. */
+function poolMatchesModel(pool, modelId){
+  const provider = modelId.split('/')[0];
+  if(!provider || pool.provider !== provider) return false;
+  const family = String(pool.window || '')
+    .replace(/\b\d+\s*[a-z]+\b|\b(?:weekly|daily|hourly|monthly)\b/gi, '').trim();
+  return !family || modelId.includes(family.toLowerCase());
+}
+/* Pools covering the current model, worst-off first — the first entry is the
+   one that runs out on you soonest. */
+function poolsForCurrentModel(){
+  const modelId = String(currentModel() || '').toLowerCase();
+  if(!modelId || !Array.isArray(usageData?.pools)) return [];
+  return usageData.pools
+    .filter(p => poolMatchesModel(p, modelId))
+    .sort((a, b) => (Number(b.used_percent) || 0) - (Number(a.used_percent) || 0));
+}
+function usagePct(pool){ return Math.max(0, Math.min(100, Number(pool.used_percent) || 0)); }
+function usageLevel(pct){ return pct >= 90 ? ' hot' : pct >= 70 ? ' warn' : ''; }
+
+function renderUsagePools(pools){
+  const wrap = $('usagePools');
+  wrap.innerHTML = '';
+  if(!Array.isArray(pools) || !pools.length){
+    const none = document.createElement('div');
+    none.className = 'usage-status';
+    none.textContent = 'The router reported no shared pools.';
+    wrap.appendChild(none);
+    return;
+  }
+  const modelId = String(currentModel() || '').toLowerCase();
+  const provider = modelId.split('/')[0];
+  let matched = false;
+  for(const pool of pools){
+    const pct = usagePct(pool);
+    const mine = poolMatchesModel(pool, modelId);
+    if(mine) matched = true;
+
+    const row = document.createElement('div');
+    row.className = 'usage-pool' + (pct >= 90 ? ' hot' : pct >= 70 ? ' warn' : '');
+
+    const top = document.createElement('div');
+    top.className = 'usage-pool-top';
+    const name = document.createElement('span');
+    name.className = 'usage-pool-name';
+    name.textContent = pool.provider || 'unknown';
+    const win = document.createElement('span');
+    win.className = 'usage-pool-win';
+    win.textContent = pool.window || '';
+    top.append(name, win);
+    if(mine){
+      const chip = document.createElement('span');
+      chip.className = 'usage-chip';
+      chip.textContent = 'current model';
+      top.appendChild(chip);
+    }
+    const pctEl = document.createElement('span');
+    pctEl.className = 'usage-pool-pct';
+    pctEl.textContent = pct + '%';
+    top.appendChild(pctEl);
+
+    const bar = document.createElement('div');
+    bar.className = 'usage-bar';
+    const fill = document.createElement('i');
+    fill.style.width = pct + '%';
+    bar.appendChild(fill);
+    row.append(top, bar);
+
+    const until = usageUntil(usageResetMs(pool.resets_at));
+    if(until){
+      const foot = document.createElement('div');
+      foot.className = 'usage-pool-foot';
+      foot.textContent = 'Resets ' + until;
+      row.appendChild(foot);
+    }
+    wrap.appendChild(row);
+  }
+  if(provider && !matched){
+    const note = document.createElement('div');
+    note.className = 'usage-status';
+    note.textContent = 'Your current model (' + provider + ') has no shared pool of its own.';
+    wrap.appendChild(note);
+  }
+}
+async function loadUsage(){
+  const status = $('usageStatus'), body = $('usageBody');
+  status.classList.remove('err');
+  status.style.display = '';
+  status.textContent = 'Loading…';
+  try{
+    const res = await fetch('/api/usage');
+    const data = await res.json().catch(() => null);
+    if(!res.ok || !data) throw new Error(data?.error?.message || data?.error || ('HTTP ' + res.status));
+    usageData = data;
+    renderUsageMini();
+    const u = data.user || {};
+    $('usageRpm').textContent = typeof u.rpm_limit === 'number' ? u.rpm_limit + ' requests' : '—';
+    const today = $('usageToday');
+    today.textContent = typeof u.today_tokens === 'number' ? usageNum(u.today_tokens) + ' tokens' : '—';
+    today.title = typeof u.today_tokens === 'number' ? u.today_tokens.toLocaleString() + ' tokens' : '';
+    $('usageCap').textContent = typeof u.daily_token_limit === 'number'
+      ? usageNum(u.daily_token_limit) + ' tokens'
+      : 'No daily cap';
+    const rms = usageResetMs(u.resets_at);
+    $('usageReset').textContent = rms ? usageUntil(rms) + ' — ' + new Date(rms).toLocaleString() : '—';
+    renderUsagePools(data.pools);
+    body.style.display = '';
+    status.style.display = 'none';
+  }catch(err){
+    body.style.display = 'none';
+    status.classList.add('err');
+    status.textContent = 'Could not load usage: ' + (err.message || err);
+  }
+}
+/* The composer chip shows one number: the pool that runs out first for the
+   model you are on. Hidden entirely when no pool covers that model. */
+function renderUsageMini(){
+  const chip = $('usageMini');
+  const mine = poolsForCurrentModel();
+  if(!mine.length){ chip.style.display = 'none'; return; }
+  const pct = usagePct(mine[0]);
+  chip.style.display = '';
+  chip.className = 'usage-mini' + usageLevel(pct);
+  chip.style.setProperty('--usage-p', pct);
+  chip.querySelector('.usage-mini-pct').textContent = pct + '%';
+  chip.querySelector('.usage-mini-win').textContent = mine[0].window || '';
+  const lines = mine.map(p => {
+    const until = usageUntil(usageResetMs(p.resets_at));
+    return p.provider + ' ' + (p.window || '') + ' — ' + usagePct(p) + '% used'
+      + (until ? ', resets ' + until : '');
+  });
+  chip.setAttribute('data-tip', 'Shared capacity for this model\n' + lines.join('\n') + '\nClick for full usage');
+}
+/* Usage moves as you chat, so refresh after turns — debounced, because
+   draining a queue can finish several turns back to back. */
+let usageRefreshTimer = null;
+function refreshUsageSoon(){
+  clearTimeout(usageRefreshTimer);
+  usageRefreshTimer = setTimeout(() => {
+    fetch('/api/usage')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if(d){ usageData = d; renderUsageMini(); } })
+      .catch(() => {});   // the chip is a convenience; never surface its failures
+  }, 900);
+}
+$('usageRefresh').addEventListener('click', loadUsage);
+$('usageMini').addEventListener('click', () => {
+  openSettings();
+  document.querySelector('.modal-nav-item[data-page="usage"]')?.click();
+});
+refreshUsageSoon();
 
 $('settingsBtn').addEventListener('click', openSettings);
 $('settingsClose').addEventListener('click', () => $('settingsOverlay').classList.remove('show'));

@@ -251,6 +251,10 @@ async function runToolLoop(model, messages, onEvent, reasoningEffort, requireApp
       throw routerError('The router returned an invalid completion response.', 502, headers);
     }
     const message = choice.message;
+    // The tool loop builds its own events, so reasoning has to be forwarded
+    // explicitly here — the plain streaming path passes it through untouched.
+    const think = message.reasoning_content || message.reasoning || message.thinking;
+    if (think && onEvent) onEvent({ choices: [{ delta: { reasoning_content: think } }] });
     const calls = message.tool_calls || [];
     if (calls.length === 0) return message.content || '';
 
@@ -313,6 +317,17 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/api/models' && req.method === 'GET') {
     routerRequest('/models', 'GET', null)
+      .then(({ status, json, raw }) => {
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(json ? JSON.stringify(json) : raw);
+      })
+      .catch((err) => sendJson(res, 502, { error: err.message }));
+    return;
+  }
+
+  // Quota for this key plus the router's shared capacity pools.
+  if (url.pathname === '/api/usage' && req.method === 'GET') {
+    routerRequest('/usage', 'GET', null)
       .then(({ status, json, raw }) => {
         res.writeHead(status, { 'Content-Type': 'application/json' });
         res.end(json ? JSON.stringify(json) : raw);

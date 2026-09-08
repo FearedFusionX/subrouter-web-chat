@@ -152,6 +152,8 @@ Double-click a conversation in the sidebar to rename it. New chats title themsel
 
 The list groups by age (Today, Yesterday, Previous 7 days…) and shows a relative time on each entry. Both can be turned off in **Settings → Appearance**.
 
+Two things get marked inline in the transcript with a thin separator: **picking a chat back up** after an hour or more away (*"3 hours later · 17:05"*), and **switching model or thinking level** mid-conversation, so it stays obvious which turns were answered by what. Older chats predate the per-message timestamp, but `turnId` embeds the send time, so gap markers appear in existing history too — model switches only start being marked from the first turn recorded after this change.
+
 `Ctrl+B` collapses the sidebar. `Enter` sends and `Shift+Enter` inserts a newline; flip "Enter sends" off in Settings to swap that for `Ctrl+Enter` sends.
 
 ### Memory and Skills
@@ -160,9 +162,27 @@ The list groups by age (Today, Yesterday, Previous 7 days…) and shows a relati
 
 **Settings → Skills** are the same idea, but individually toggleable — named snippets you switch on and off. Enabled skills are appended to the system prompt alongside Memory. Use them for instructions you want sometimes but not always.
 
+### Usage and limits
+
+**Settings → Usage** reads `GET /v1/usage` from your router and shows two things:
+
+- **Your key** — requests-per-minute limit, tokens spent today, your daily cap if you have one, and when the counter resets.
+- **Shared pools** — capacity shared across *everyone* on the router, broken down by provider and window (`anthropic 5h`, `openai 7d`, and so on). A bar turns amber past 70% and red past 90%. Because model ids are `provider/name`, the pool covering your currently selected model is tagged **current model**.
+
+A matching chip sits in the composer toolbar, left of the thinking-level dropdown, showing the single pool that will run out on you first for the model you are currently on — same amber/red thresholds. Hover it for the full breakdown, click it to jump to the page. It hides itself when no pool covers your model, and refreshes when you switch models and shortly after each reply lands.
+
+These are the router's own figures, not an estimate — the app tracks nothing locally and stores nothing. Providers with no pool of their own (a self-hosted model, say) are called out as such, and if your router doesn't implement `/v1/usage` the page says so rather than guessing.
+
 ### Thinking effort
 
 Next to the model picker is a thinking-level dropdown (off → minimal → low → … → ultra). It is sent to the router as `reasoning_effort`; whether it does anything depends on the model and router. Model and effort are remembered per conversation.
+
+When a model returns its reasoning, it appears above the reply as a **Thought for 18s** toggle. Expanded, the reasoning is broken into collapsible sections: a paragraph opening with a bold `**Header**` uses that as its summary, otherwise its first sentence does, with the rest as the body. A paragraph with nothing left over stays a plain line rather than an empty toggle. While it streams the text simply flows — re-sectioning on every delta would collapse whatever you had just opened. The reasoning and its duration are kept in history alongside the message.
+
+Reasoning has no single name across OpenAI-compatible providers, so `reasoning_content`, `reasoning` and `thinking` are all accepted, on the streaming path and through the MCP tool loop alike.
+
+> As of this writing `router.eva.pink` returns **no** reasoning content. Probing `anthropic`, `openai` and `grok`, streaming and non-streaming, at `effort=low` and `effort=high`, every delta carried only `role` and `content`. The effort parameter is accepted without error, but the thinking tokens are not sent back. The block therefore stays hidden today and will light up on its own if the router starts forwarding them.
+
 
 ---
 
@@ -228,6 +248,7 @@ Everything the frontend does goes through these routes on `localhost` — no aut
 | Route | Purpose |
 |---|---|
 | `GET /api/models` | Model list from the router |
+| `GET /api/usage` | This key's quota and the router's shared capacity pools |
 | `GET/POST /api/config` | Read/update base URL and token (the key is only ever returned masked) |
 | `POST /api/chat` | Chat completion; streams SSE, runs the MCP tool loop when tools are connected |
 | `GET/POST /api/mcp/servers` | List and add tool-server definitions |
