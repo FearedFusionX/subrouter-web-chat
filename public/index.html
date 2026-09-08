@@ -285,6 +285,39 @@
   #messages.bubbles .msg.error-ui .msg-body{ align-items:flex-start; }
   #messages.bubbles .msg.error-ui .error-card{ max-width:var(--bubble-width); }
 
+  #messagesWrap{ flex:1; min-height:0; display:flex; flex-direction:column; position:relative; }
+  #messagesWrap > #messages{ flex:1; }
+  #scrollBottomBtn{
+    position:absolute; right:22px; bottom:14px; z-index:15;
+    width:34px; height:34px; padding:0; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    border:1px solid var(--border); background:var(--panel-alt); color:var(--text);
+    font-size:15px; line-height:1; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.3);
+    opacity:0; visibility:hidden; transform:translateY(6px);
+    transition:opacity var(--anim) var(--ease), transform var(--anim) var(--ease), visibility var(--anim);
+  }
+  #scrollBottomBtn.show{ opacity:1; visibility:visible; transform:none; }
+  #scrollBottomBtn:hover{ border-color:var(--accent-dim); color:var(--accent); }
+  #scrollBottomBtn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* caret trailing the streaming reply */
+  .typing-caret{
+    display:inline-block; width:2px; height:1em; margin-left:2px; border-radius:1px;
+    vertical-align:text-bottom; background:var(--accent);
+    animation:caretBlink 1.1s steps(1, end) infinite;
+  }
+  @keyframes caretBlink{ 0%,49%{ opacity:1; } 50%,100%{ opacity:0; } }
+
+  .about-head{ display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .about-logo{ flex:none; border-radius:calc(10px * var(--radius)); }
+  .about-name{ font-family:var(--font-display); font-size:17px; font-weight:600; }
+  .about-version{ margin-top:2px; color:var(--muted); font-family:var(--font-mono); font-size:12px; }
+  .about-row{ display:flex; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .about-row:last-child{ border-bottom:none; }
+  .about-key{ flex:none; width:110px; color:var(--muted); }
+  .about-val{ min-width:0; color:var(--text); word-break:break-word; }
+  .about-val a{ color:var(--accent); }
+
   /* thinking dots */
   .thinking-dots{ display:inline-flex; gap:4px; padding:6px 0; }
   .thinking-dots span{
@@ -864,6 +897,7 @@
   body.no-anim .thinking-dots span:nth-child(1){ animation-delay:-.32s !important; }
   body.no-anim .thinking-dots span:nth-child(2){ animation-delay:-.16s !important; }
   body.no-anim .tool-step.pending .step-icon{ animation-duration:1s !important; }
+  body.no-anim .typing-caret{ animation-duration:1.1s !important; }
 </style>
 </head>
 <body>
@@ -892,7 +926,10 @@
   <button id="sidebarOpen" class="sidebar-open" data-tip="Open sidebar (Ctrl+B)">›</button>
   <div id="dropZone">Drop files or images to attach</div>
 
-  <div id="messages"></div>
+  <div id="messagesWrap">
+    <div id="messages"></div>
+    <button id="scrollBottomBtn" data-tip="Jump to the latest message" aria-label="Jump to the latest message">↓</button>
+  </div>
 
   <div id="queueNotice"></div>
   <div id="streamActions">
@@ -962,6 +999,7 @@
         <div class="modal-nav-item" data-page="api"><span class="ic">⚿</span>API</div>
         <div class="modal-nav-item" data-page="mcp"><span class="ic">⛓</span>MCP</div>
         <div class="modal-nav-item" data-page="data"><span class="ic">⇅</span>Data</div>
+        <div class="modal-nav-item" data-page="about"><span class="ic">◈</span>About</div>
       </div>
 
       <div class="modal-page" data-content="general">
@@ -1330,6 +1368,35 @@
           <button id="clearAllBtn" style="color:var(--err);border-color:var(--err);">Clear all conversations</button>
         </div>
       </div>
+
+      <div class="modal-page" data-content="about" style="display:none;">
+        <div class="modal-page-title">About</div>
+        <div class="modal-section">
+          <div class="about-head">
+            <img class="about-logo" src="icon.svg" alt="" width="46" height="46" />
+            <div>
+              <div class="about-name">subrouter-web</div>
+              <div class="about-version" id="aboutVersion">—</div>
+            </div>
+          </div>
+          <div class="mcp-hint">A local chat client for a personal subrouter — any OpenAI-compatible API proxy. Conversations stay in this browser, and your API key stays in <code class="inline">config.json</code> on your own machine.</div>
+        </div>
+        <hr class="modal-hr" />
+        <div class="modal-section">
+          <div class="modal-section-title">Credits</div>
+          <div class="about-row"><span class="about-key">Built by</span><span class="about-val"><a href="https://github.com/FearedFusionX" target="_blank" rel="noopener">Fursion</a></span></div>
+          <div class="about-row"><span class="about-key">Source</span><span class="about-val"><a href="https://github.com/FearedFusionX/subrouter-web-chat" target="_blank" rel="noopener">FearedFusionX/subrouter-web-chat</a></span></div>
+          <div class="about-row"><span class="about-key">Tool calling</span><span class="about-val"><a href="https://modelcontextprotocol.io" target="_blank" rel="noopener">Model Context Protocol</a></span></div>
+          <div class="about-row"><span class="about-key">Fonts</span><span class="about-val">Google Fonts, fetched on demand with local fallbacks</span></div>
+        </div>
+        <hr class="modal-hr" />
+        <div class="modal-section">
+          <div class="modal-section-title">Build</div>
+          <div class="about-row"><span class="about-key">Frontend</span><span class="about-val">One HTML file — no framework, no bundler, no build step</span></div>
+          <div class="about-row"><span class="about-key">Backend</span><span class="about-val">A single Node file with zero npm dependencies</span></div>
+          <div class="about-row"><span class="about-key">Shell cache</span><span class="about-val" id="aboutCache">—</span></div>
+        </div>
+      </div>
     </div>
     <div class="modal-foot">
       <button id="settingsClose" class="ghost">Close</button>
@@ -1342,6 +1409,7 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+const APP_VERSION = '1.1.0';
 const messagesEl = $('messages'), inputEl = $('input'), statusDot = $('statusDot');
 
 const ACCENTS = ['#93b0ff','#5ecbb0','#f5a623','#ff6b9d','#c19aff'];
@@ -1777,6 +1845,63 @@ function legacyStreamError(content){
   if(!m) return null;
   return normalizeChatError(m[2], Number(m[1]) || 0);
 }
+/* A failed turn used to leave an assistant message with no text, no tool steps
+   and nothing to copy — a blank bubble carrying only a meta footer. Skip those
+   so conversations recorded before the guard in requestTurn still read cleanly. */
+function isEmptyAssistant(m){
+  return !String(m.content ?? '').trim() && !m.steps?.length && !m.attachments?.length;
+}
+
+/* ---------- scroll position ---------- */
+/* Auto-scroll only while the reader is already at the bottom. Once they scroll
+   up to re-read something, streaming text must not drag them back down. */
+const SCROLL_STICK_PX = 120;
+let stickToBottom = true;
+let lastRenderedConvo = null;
+function isNearBottom(px = SCROLL_STICK_PX){
+  return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight <= px;
+}
+function scrollMessagesToBottom(smooth){
+  messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+  stickToBottom = true;
+  updateScrollButton();
+}
+function updateScrollButton(){
+  const btn = $('scrollBottomBtn');
+  if(!btn) return;
+  const scrollable = messagesEl.scrollHeight - messagesEl.clientHeight > SCROLL_STICK_PX;
+  btn.classList.toggle('show', scrollable && !isNearBottom(200));
+}
+messagesEl.addEventListener('scroll', () => {
+  stickToBottom = isNearBottom();
+  updateScrollButton();
+}, { passive: true });
+window.addEventListener('resize', updateScrollButton);
+$('scrollBottomBtn').addEventListener('click', () => scrollMessagesToBottom(true));
+
+/* About page facts. The shell cache name comes from the live service worker
+   rather than a copy of it here, so it cannot drift out of date. */
+$('aboutVersion').textContent = 'v' + APP_VERSION;
+if(window.caches?.keys){
+  caches.keys()
+    .then(keys => { $('aboutCache').textContent = keys.find(k => k.startsWith('subrouter-chat')) || 'not cached yet'; })
+    .catch(() => { $('aboutCache').textContent = 'unavailable'; });
+}else{
+  $('aboutCache').textContent = 'unavailable';
+}
+
+/* The caret trails the streaming reply, so it stays obvious that text is still
+   arriving even when tokens come in slow bursts. Re-added after every chunk
+   because renderRichContent replaces the whole subtree each time. */
+function showTypingCaret(contentEl){
+  const caret = document.createElement('span');
+  caret.className = 'typing-caret';
+  caret.setAttribute('aria-hidden', 'true');
+  const last = contentEl.lastElementChild;
+  const inline = last && /^(P|LI|H1|H2|H3|H4|H5|H6|BLOCKQUOTE)$/.test(last.tagName);
+  (inline ? last : contentEl).appendChild(caret);
+}
+
 function chatErrorFromException(err){
   if(err?.chatError) return err.chatError;
   return normalizeChatError({ message: err?.message || 'Could not reach the router.', type: err instanceof TypeError ? 'network_error' : 'request_error' });
@@ -2106,6 +2231,8 @@ function renderMessages(){
   const convo = activeConvo();
   if(!convo || convo.messages.length === 0){
     messagesEl.innerHTML = '<div class="empty">Start typing, or pick a model below first.</div>';
+    stickToBottom = true;
+    updateScrollButton();
     return;
   }
   let mi = -1;
@@ -2115,6 +2242,7 @@ function renderMessages(){
     if(m.role === 'assistant' && !m.steps?.length){
       const legacyError = legacyStreamError(m.content);
       if(legacyError) { appendErrorDom({ ...m, error: legacyError }); continue; }
+      if(isEmptyAssistant(m)) continue;
     }
     if(m.role === 'system_ui') { appendMsgDom('system', m.content).dataset.mi = mi; continue; }
     if(m.role === 'system') continue;
@@ -2144,7 +2272,10 @@ function renderMessages(){
       return;
     }
   }
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  /* Opening a different conversation lands on its newest message; re-rendering
+     the one you are reading keeps the position you chose. */
+  if(lastRenderedConvo !== convo){ lastRenderedConvo = convo; stickToBottom = true; }
+  if(stickToBottom) scrollMessagesToBottom(); else updateScrollButton();
 }
 
 /* Ticking a box rewrites the stored message, so the state is real and persists. */
@@ -2195,7 +2326,7 @@ function appendMsgDom(role, text, attachments, meta, msgObj){
   wrap.innerHTML = (role === 'system' ? '' : avatarHtml(role)) +
     `<div class="msg-body"><div class="who">${who}</div><div class="content">${role==='system' ? escapeHtml(text) : renderRichContent(text || '')}</div>${attachHtml}${footerHtml}</div>`;
   messagesEl.appendChild(wrap);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  if(stickToBottom) scrollMessagesToBottom();
   wireCodeCopyButtons(wrap);
   wireChecklists(wrap, msgObj);
   const msgCopyBtn = wrap.querySelector('.msg-copy-btn');
@@ -2240,7 +2371,7 @@ function appendErrorDom(message){
     wrap.querySelector('.error-edit').addEventListener('click', () => editTurn(message.turnId));
   }
   messagesEl.appendChild(wrap);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  if(stickToBottom) scrollMessagesToBottom();
   return wrap;
 }
 
@@ -2664,7 +2795,7 @@ async function requestTurn(convo, userMessage){
     if(settings.collapseSteps) div.querySelector('.tool-step-body').classList.add('collapsed');
     wireStepCard(div, handleApproval, server, tool);
     stepsEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    if(stickToBottom) scrollMessagesToBottom();
     return div;
   }
   function finishStep(div, server, tool, args, resultText, denied){
@@ -2748,7 +2879,8 @@ async function requestTurn(convo, userMessage){
       }
       full += delta;
       contentEl.innerHTML = renderRichContent(full);
-      if(settings.autoScroll !== false) messagesEl.scrollTop = messagesEl.scrollHeight;
+      showTypingCaret(contentEl);
+      if(settings.autoScroll !== false && stickToBottom) scrollMessagesToBottom();
     }
   }
 
@@ -2809,7 +2941,9 @@ async function requestTurn(convo, userMessage){
       (ttft !== null ? ` · first token ${ttft}s` : '') + ` · ${timeStr()}`;
     let assistantMsg = null;
     if(outcome === 'success'){
-      assistantMsg = { role: 'assistant', turnId, content: full, apiContent: full, meta: assistantMeta, steps };
+      /* A reply that produced no text and ran no tools has nothing to show.
+         Saving it anyway is what left blank bubbles behind after a bad turn. */
+      if(full || steps.length) assistantMsg = { role: 'assistant', turnId, content: full, apiContent: full, meta: assistantMeta, steps };
     }else if(outcome === 'aborted'){
       if(full || steps.length) assistantMsg = { role: 'assistant', turnId, content: full + (full ? '\n\n' : '') + '[Stopped]', apiContent: full, meta: assistantMeta, steps };
     }else if(full || steps.length){
