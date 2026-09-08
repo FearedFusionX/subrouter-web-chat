@@ -142,6 +142,12 @@ Anything waiting shows in a strip above the composer, where you can drop individ
 
 `Esc` interrupts whether or not the composer is focused.
 
+### Math notation
+
+With **Render markdown** enabled, use `\(x^2\)` for inline math and `\[x^2\]` or `$$x^2$$` for display equations. Single `$` stays literal (including prices), and code spans/fences are not interpreted as math. Invalid or unfinished equations remain readable; message copy, storage and exports keep the original notation.
+
+Rendering uses pinned KaTeX CSS, JavaScript and fonts from a CDN. These assets are not precached by the service worker, so a first visit needs internet access; offline rendering depends on the browser cache. If KaTeX JavaScript is unavailable, equations show as source text.
+
 ### Attachments
 
 Drag files onto the window or use **+**. Images are sent to the model as images; anything else is read as text and inlined into your message as a fenced code block (so binary files other than images won't be useful). Whether image input works at all depends on the model you picked.

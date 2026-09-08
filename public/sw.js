@@ -1,4 +1,4 @@
-const CACHE = 'subrouter-chat-v6';
+const CACHE = 'subrouter-chat-v7';
 const SHELL = ['/', '/index.html', '/icon.svg', '/manifest.json'];
 
 self.addEventListener('install', (e) => {

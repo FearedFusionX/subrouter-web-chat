@@ -7,6 +7,8 @@
 <link rel="icon" href="/icon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
 <title>subrouter // chat</title>
 <style>
   :root{
@@ -441,7 +443,7 @@
   #messages.bubbles .msg.user .msg-body{ display:flex; flex-direction:column; align-items:flex-end; }
   #messages.bubbles .msg.assistant .msg-body{ display:flex; flex-direction:column; align-items:flex-start; }
   #messages.bubbles .msg .content{
-    display:inline-block; max-width:var(--bubble-width); padding:10px 14px; border-radius:calc(16px * var(--radius));
+    display:inline-block; max-width:min(100%, var(--bubble-width)); min-width:0; padding:10px 14px; border-radius:calc(16px * var(--radius));
   }
   #messages.bubbles .msg.user .content{ background:var(--accent); color:var(--on-accent); border-bottom-right-radius:4px; }
   #messages.bubbles .msg.assistant .content{ background:var(--panel-alt2); border-bottom-left-radius:4px; }
@@ -775,6 +777,12 @@
   body.sidebar-collapsed #messages{ padding-top:50px; }
   #sidebarScrim{ display:none; }
 
+  /* Display equations scroll within the message, not the page. */
+  .math-display{ display:block; max-width:100%; min-width:0; overflow-x:auto; overflow-y:hidden; padding:.15em 0; color:inherit; }
+  .math-display .katex-display{ margin:.5em 0; }
+  .math-display .katex-display > .katex{ display:block; width:max-content; min-width:100%; }
+  .math-inline{ color:inherit; }
+  .math-source{ white-space:pre-wrap; overflow-wrap:anywhere; }
   /* ---------- markdown checklists ---------- */
   .checklist-wrap{ margin:8px 0; white-space:normal; }
   .check-progress{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
@@ -2068,9 +2076,79 @@ function throwChatError(value, status){
 }
 
 /* ---------- lightweight markdown + syntax highlighting ---------- */
+// Protect code and TeX before the markdown passes. Tokens are render-local:
+// stored messages, exports and message-copy always retain their original source.
+function protectRichTokens(text, sourceOnly = false){
+  let prefix = '';
+  while(text.includes(prefix)) prefix += '';
+  const rendered = [], sources = [];
+  const token = (html, source) => {
+    sources.push(source);
+    return prefix + (rendered.push(html) - 1) + '';
+  };
+  const escapedAt = index => {
+    let slashes = 0;
+    while(index > 0 && text[--index] === '\\') slashes++;
+    return slashes % 2 === 1;
+  };
+  let out = '', pos = 0;
+  const starts = /^ {0,3}(`{3,}(?!`)[^`\n]*|~{3,}[^\n]*)(?:\n|$)|`+|\\\(|\\\[|\$\$/gm;
+  let match;
+  while((match = starts.exec(text))){
+    const start = match.index;
+    if(escapedAt(start)) continue;
+    let end, html;
+    if(match[1]){
+      const fence = match[1].match(/^(`+|~+)/)[0];
+      const bodyStart = starts.lastIndex;
+      const closer = new RegExp('^ {0,3}' + fence[0] + '{' + fence.length + ',}[ \\t]*\\r?$', 'gm');
+      closer.lastIndex = bodyStart;
+      const close = closer.exec(text);
+      end = close ? closer.lastIndex : text.length;
+      const code = text.slice(bodyStart, close ? close.index : end);
+      if(!sourceOnly) html = `<div class="codeblock-wrap"><button class="copy-btn" data-code="${encodeURIComponent(JSON.stringify(code))}">Copy</button><pre class="codeblock"><code>${highlightCode(code)}</code></pre></div>`;
+    }else if(match[0][0] === '`'){
+      const closer = /`+/g;
+      closer.lastIndex = starts.lastIndex;
+      let close;
+      while((close = closer.exec(text)) && close[0].length !== match[0].length){}
+      end = close ? closer.lastIndex : text.length;
+      if(!sourceOnly) html = close
+        ? `<code class="inline">${escapeHtml(text.slice(starts.lastIndex, close.index))}</code>`
+        : escapeHtml(text.slice(start, end));
+    }else{
+      const open = match[0], close = open === '\\(' ? '\\)' : open === '\\[' ? '\\]' : '$$';
+      let closeAt = text.indexOf(close, starts.lastIndex);
+      while(closeAt !== -1 && escapedAt(closeAt)) closeAt = text.indexOf(close, closeAt + close.length);
+      end = closeAt === -1 ? text.length : closeAt + close.length;
+      const source = text.slice(start, end);
+      const displayMode = open !== '\\(';
+      html = `<span class="math-source">${escapeHtml(source)}</span>`;
+      if(!sourceOnly && closeAt !== -1 && window.katex){
+        try{
+          html = window.katex.renderToString(text.slice(starts.lastIndex, closeAt), {
+            displayMode, trust:false, throwOnError:true, maxExpand:1000, maxSize:20
+          });
+        }catch{ /* Invalid or still-streaming TeX remains readable source. */ }
+      }
+      html = `<span class="${displayMode ? 'math-display' : 'math-inline'}">${html}</span>`;
+    }
+    out += text.slice(pos, start) + token(html, text.slice(start, end));
+    pos = end;
+    starts.lastIndex = end;
+  }
+  out += text.slice(pos);
+  return {
+    text:out,
+    restoreSource: value => value.replace(new RegExp(prefix + '(\\d+)', 'g'), (_, n) => sources[Number(n)]),
+    // A token inside a link URL/alt attribute must never inject rendered HTML.
+    restore: html => html.split(/(<[^>]*>)/g).map((part, i) =>
+      part.replace(new RegExp(prefix + '(\\d+)', 'g'), (_, n) =>
+        i % 2 ? escapeHtml(sources[Number(n)]) : rendered[Number(n)])).join('')
+  };
+}
 function mdInline(line){
   let s = escapeHtml(line);
-  s = s.replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, '$1<em>$2</em>');
   s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, '<img class="msg-inline-img" src="$2" alt="$1">');
@@ -2084,19 +2162,11 @@ let checkOrdinal = 0;
 /* Flips the Nth checkbox in a message's source text. Fenced code is skipped so
    its ordinals line up with what renderMarkdownBlock actually rendered. */
 function toggleChecklistItem(text, ordinal){
-  const parts = String(text).split(/```(\w*)\n([\s\S]*?)```/g);
+  const protectedText = protectRichTokens(String(text), true);
   let n = 0;
-  for(let i = 0; i < parts.length; i += 3){
-    if(!parts[i]) continue;
-    parts[i] = parts[i].replace(/^(\s*[-*+] )\[([ xX])\]/gm, (m, pre, mark) =>
-      n++ === ordinal ? pre + (mark === ' ' ? '[x]' : '[ ]') : m);
-  }
-  let out = '';
-  for(let i = 0; i < parts.length; i += 3){
-    out += parts[i] || '';
-    if(parts[i+2] !== undefined) out += '```' + (parts[i+1] || '') + '\n' + parts[i+2] + '```';
-  }
-  return out;
+  const toggled = protectedText.text.replace(/^(\s*[-*+] )\[([ xX])\](?= )/gm, (m, pre, mark) =>
+    n++ === ordinal ? pre + (mark === ' ' ? '[x]' : '[ ]') : m);
+  return protectedText.restoreSource(toggled);
 }
 
 function renderMarkdownBlock(text){
@@ -2167,17 +2237,8 @@ function renderRichContent(text){
      message only — blank lines between blocks are meaningful. */
   text = String(text ?? '').replace(/^(?:[ \t]*\r?\n)+/, '');
   if(settings.markdown === false) return escapeHtml(text || '');
-  const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
-  let html = '';
-  for(let i = 0; i < parts.length; i += 3){
-    const plain = parts[i] || '';
-    if(plain) html += renderMarkdownBlock(plain);
-    if(parts[i+2] !== undefined){
-      const highlighted = highlightCode(parts[i+2]);
-      html += `<div class="codeblock-wrap"><button class="copy-btn" data-code="${encodeURIComponent(parts[i+2])}">Copy</button><pre class="codeblock"><code>${highlighted}</code></pre></div>`;
-    }
-  }
-  return html;
+  const protectedText = protectRichTokens(text);
+  return protectedText.restore(renderMarkdownBlock(protectedText.text));
 }
 
 function avatarHtml(who){
@@ -2511,7 +2572,7 @@ function wireChecklists(wrap, msgObj){
 function wireCodeCopyButtons(wrap){
   wrap.querySelectorAll('.codeblock-wrap .copy-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      navigator.clipboard.writeText(decodeURIComponent(btn.dataset.code));
+      navigator.clipboard.writeText(JSON.parse(decodeURIComponent(btn.dataset.code)));
       btn.textContent = 'Copied';
       setTimeout(() => btn.textContent = 'Copy', 1200);
     });
