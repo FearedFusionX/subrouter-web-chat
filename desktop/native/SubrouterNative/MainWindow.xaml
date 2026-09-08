@@ -1,0 +1,89 @@
+<Window x:Class="SubrouterNative.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Subrouter" Height="820" Width="1200" MinHeight="480" MinWidth="480"
+        Background="#141312" WindowStyle="None" ResizeMode="CanResize"
+        AllowsTransparency="False" UseLayoutRounding="True"
+        Icon="Assets/icon.ico"
+        StateChanged="MainWindow_StateChanged"
+        Closing="MainWindow_Closing">
+
+  <shell:WindowChrome.WindowChrome>
+    <!--
+      Native non-client titlebar. WebView2 does not honor CSS
+      -webkit-app-region/app-region for dragging (that's an Electron/Chromium
+      renderer feature, not something the WebView2 host surfaces), so the
+      drag region here is a plain XAML row *outside* the WebView2 control
+      (Grid.Row 0 below), handled entirely by WindowChrome's real non-client
+      hit-testing - not CSS.
+    -->
+    <shell:WindowChrome CaptionHeight="30"
+                         ResizeBorderThickness="8"
+                         CornerRadius="0"
+                         GlassFrameThickness="0"
+                         NonClientFrameEdges="None"
+                         UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+
+  <Grid x:Name="RootGrid">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="30"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+
+    <Grid Grid.Row="0" Background="#141312">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+
+      <Grid Grid.Column="0">
+        <Border HorizontalAlignment="Left">
+          <Grid Margin="12,0,12,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="16"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Viewbox Grid.Column="0" Width="16" Height="16"
+                     HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Canvas Width="64" Height="64">
+                <Rectangle Width="64" Height="64" RadiusX="12" RadiusY="12" Fill="#141312"/>
+                <Path Data="M16,32 H26 M38,32 H48 M32,16 V26 M32,38 V48"
+                      Stroke="#93b0ff" StrokeThickness="4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                <Ellipse Canvas.Left="26" Canvas.Top="26" Width="12" Height="12" Fill="#93b0ff"/>
+              </Canvas>
+            </Viewbox>
+            <TextBlock Grid.Column="1" Text="Subrouter" Margin="8,0,0,0"
+                       Foreground="#c9c6c2" FontSize="12" FontFamily="Segoe UI"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <!-- IsHitTestVisibleInChrome so button clicks aren't swallowed as drags. -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,8,0" VerticalAlignment="Center" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Button x:Name="MinimizeButton" Width="42" Height="30" Style="{StaticResource CaptionButtonStyle}" Click="MinimizeButton_Click">
+          <Grid Width="12" Height="12" ClipToBounds="True">
+            <Path Data="M1,6.5 L11,6.5" Stroke="#a0a0a0" StrokeThickness="1"/>
+          </Grid>
+        </Button>
+        <Button x:Name="MaximizeButton" Width="42" Height="30" Style="{StaticResource CaptionButtonStyle}" Click="MaximizeButton_Click">
+          <Path x:Name="MaximizeGlyph" Data="M0,0 L10,0 L10,10 L0,10 Z" Stroke="#a0a0a0" StrokeThickness="1"/>
+        </Button>
+        <Button x:Name="CloseButton" Width="42" Height="30" Style="{StaticResource CloseCaptionButtonStyle}" Click="CloseButton_Click">
+          <Path Data="M0,0 L10,10 M10,0 L0,10" Stroke="#a0a0a0" StrokeThickness="1"/>
+        </Button>
+      </StackPanel>
+    </Grid>
+
+    <!-- Keep the child HWND off the native resize hit-test border. -->
+    <wv2:WebView2 x:Name="Browser" Grid.Row="1" Margin="8,0,8,8"/>
+
+    <Grid x:Name="LoadingOverlay" Grid.Row="1" Background="#141312">
+      <TextBlock Text="Starting…" Foreground="#93b0ff" FontFamily="Segoe UI" FontSize="13"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Grid>
+  </Grid>
+</Window>

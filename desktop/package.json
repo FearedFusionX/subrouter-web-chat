@@ -1,0 +1,51 @@
+{
+  "name": "subrouter-desktop",
+  "productName": "Subrouter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone desktop shell for subrouter-web",
+  "author": "Fursion",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --win nsis --dir"
+  },
+  "devDependencies": {
+    "electron": "38.8.6",
+    "electron-builder": "26.16.1"
+  },
+  "build": {
+    "appId": "pink.eva.subrouter.desktop",
+    "productName": "Subrouter",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json",
+      "!**/config.json",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      { "from": "../server.js", "to": "backend/server.js" },
+      { "from": "../mcp-client.js", "to": "backend/mcp-client.js" },
+      {
+        "from": "../public",
+        "to": "backend/public",
+        "filter": ["**/*", "!config.json"]
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "artifactName": "Subrouter-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Subrouter"
+    }
+  }
+}

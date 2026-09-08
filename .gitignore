@@ -6,3 +6,12 @@ node_modules/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+
+# Desktop build outputs and local tooling
+.claude/
+desktop/dist/
+desktop/native/**/bin/
+desktop/native/**/obj/
+desktop/native/publish/
+desktop/native/tools/icon-*.png
+*.user

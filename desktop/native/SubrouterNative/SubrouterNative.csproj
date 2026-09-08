@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>SubrouterNative</RootNamespace>
+    <AssemblyName>Subrouter</AssemblyName>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Product>Subrouter</Product>
+    <AssemblyTitle>Subrouter</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Pinned exact version - see desktop/native/README-BUILD.txt for how this was resolved. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3296.44" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\icon.ico" />
+  </ItemGroup>
+
+  <!--
+    Backend packaging allowlist. Only these three things are ever copied into
+    the published app - never config.json (which lives at the repo root and is
+    not referenced anywhere below), and never anything else from the repo.
+  -->
+  <ItemGroup>
+    <!--
+      ExcludeFromSingleFile is required: with PublishSingleFile=true, MSBuild's
+      default behavior is to bundle Content items *inside* the exe (extracted
+      to a %TEMP% cache at first run) instead of leaving them as physical files
+      next to it. BackendHost.cs reads these from AppContext.BaseDirectory as
+      plain files on disk, so they must be excluded from that bundling and
+      copied out to the publish directory instead.
+    -->
+    <Content Include="..\..\..\server.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true">
+      <Link>backend\server.js</Link>
+    </Content>
+    <Content Include="..\..\..\mcp-client.js" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true">
+      <Link>backend\mcp-client.js</Link>
+    </Content>
+    <Content Include="..\..\..\public\**\*.*" Exclude="..\..\..\public\**\config.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true">
+      <Link>backend\public\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+</Project>

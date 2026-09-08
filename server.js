@@ -8,9 +8,17 @@ const fs = require('fs');
 const path = require('path');
 const { MCPClient } = require('./mcp-client');
 
-const CONFIG_PATH = path.join(__dirname, 'config.json');
+// SUBROUTER_CONFIG_PATH lets a wrapper (the desktop app) keep config.json
+// outside the source tree. Unset — the normal case — it is config.json next
+// to this file, exactly as before.
+const CONFIG_PATH = process.env.SUBROUTER_CONFIG_PATH
+  ? path.resolve(process.env.SUBROUTER_CONFIG_PATH)
+  : path.join(__dirname, 'config.json');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = process.env.PORT || 8787;
+// Echoed by /api/health so a wrapper can tell this process apart from whatever
+// else might be sitting on the port. Empty when run by hand.
+const INSTANCE_ID = process.env.SUBROUTER_INSTANCE_ID || '';
 
 const mcpClients = new Map(); // name -> MCPClient
 const pendingApprovals = new Map(); // id -> resolve(approved: boolean)
@@ -315,6 +323,12 @@ function serveStatic(reqPath, res) {
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
 
+  // Liveness probe. Touches nothing — no config read, no router call.
+  if (url.pathname === '/api/health' && req.method === 'GET') {
+    sendJson(res, 200, { ok: true, app: 'subrouter-web', instance: INSTANCE_ID });
+    return;
+  }
+
   if (url.pathname === '/api/models' && req.method === 'GET') {
     routerRequest('/models', 'GET', null)
       .then(({ status, json, raw }) => {
@@ -494,7 +508,57 @@ const server = http.createServer((req, res) => {
   serveStatic(url.pathname, res);
 });
 
+// Kill every MCP child before going away, so `Ctrl+C` (or the desktop wrapper
+// quitting) doesn't leave tool servers running.
+let shuttingDown = false;
+function shutdown(code) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  for (const client of mcpClients.values()) {
+    try { client.stop(); } catch (e) {}
+  }
+  mcpClients.clear();
+  try { server.close(); } catch (e) {}
+  process.exit(code);
+}
+
+process.on('SIGINT', () => shutdown(0));
+process.on('SIGTERM', () => shutdown(0));
+
+// Present only when this file is run as an Electron utilityProcess; plain
+// `node server.js` skips it. Lets the wrapper ask for a clean stop.
+if (process.parentPort) {
+  process.parentPort.on('message', (event) => {
+    if (event && event.data === 'shutdown') shutdown(0);
+  });
+}
+
+// Opt-in graceful shutdown over stdin, for a native host that spawns this file
+// as a plain child process (e.g. the WPF/WebView2 shell under desktop/native).
+// Windows delivers no real SIGTERM to an external process — a host's
+// Process.Kill() just terminates us — so closing this process's stdin is the
+// only portable "please stop" signal such a host has. Only armed when
+// SUBROUTER_STDIN_SHUTDOWN=1, so a hand-run `node server.js` (stdin attached
+// to a terminal) and the Electron path above (which uses postMessage instead)
+// are both unaffected.
+if (process.env.SUBROUTER_STDIN_SHUTDOWN === '1') {
+  process.stdin.resume();
+  process.stdin.on('data', () => {}); // drain; content is never inspected
+  process.stdin.on('end', () => shutdown(0));
+  process.stdin.on('close', () => shutdown(0));
+  process.stdin.on('error', () => shutdown(0));
+}
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Start on another port, e.g. PORT=9000 node server.js`);
+  } else {
+    console.error('server error: ' + err.message);
+  }
+  process.exit(1);
+});
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`subrouter-web running at http://localhost:${PORT} (localhost only)`);
-  console.log('Edit config.json to change your base_url / api_key / mcpServers.');
+  console.log(`Config: ${CONFIG_PATH}`);
 });
